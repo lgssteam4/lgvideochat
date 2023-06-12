@@ -25,13 +25,15 @@ FLUSH PRIVILEGES;
 
 DROP TABLE IF EXISTS `[db_name]`.`auth`;
 DROP TABLE IF EXISTS `[db_name]`.`calls`;
-DROP TABLE IF EXISTS `[db_name]`.`contacts`;
+DROP TABLE IF EXISTS `[db_name]`.`contact`;
 
-CREATE TABLE contacts (contact_id UUID NOT NULL DEFAULT UUID(), email VARCHAR(64) NOT NULL, last_name VARCHAR(64) NOT NULL, first_name VARCHAR(64) NOT NULL, ip_address VARCHAR(15) NOT NULL, password CHAR(60) NOT NULL, is_active BOOL DEFAULT FALSE, is_locked BOOL DEFAULT FALSE, UNIQUE (email), UNIQUE (contact_id));
+CREATE TABLE contact (contact_id UUID NOT NULL DEFAULT UUID(), email VARCHAR(64) NOT NULL, last_name VARCHAR(64) NOT NULL, first_name VARCHAR(64) NOT NULL, ip_address VARCHAR(15) NOT NULL, password CHAR(60) NOT NULL, is_active BOOL DEFAULT FALSE, is_locked BOOL DEFAULT FALSE, UNIQUE (email), UNIQUE (contact_id));
 
-CREATE TABLE auth (contact_id UUID NOT NULL, otp CHAR(6), created_at DATETIME, expired BOOL, wrong_pass_attempt INTEGER NOT NULL, wrong_otp_count INTEGER NOT NULL, UNIQUE (contact_id), FOREIGN KEY(contact_id) REFERENCES contacts(contact_id) ON DELETE CASCADE);
+CREATE TABLE auth (contact_id UUID NOT NULL, otp CHAR(6), created_at DATETIME, expired BOOL, wrong_pass_attempt INTEGER NOT NULL, wrong_otp_count INTEGER NOT NULL, UNIQUE (contact_id), FOREIGN KEY(contact_id) REFERENCES contact(contact_id) ON DELETE CASCADE);
 
-CREATE TABLE calls (from_contact UUID NOT NULL, to_contact UUID NOT NULL, created_at DATETIME NOT NULL, status INTEGER NOT NULL, FOREIGN KEY (from_contact) REFERENCES contacts(contact_id), FOREIGN KEY (to_contact) REFERENCES contacts(contact_id) ON DELETE CASCADE);
+CREATE TABLE conversation (from_contact UUID NOT NULL, to_contact UUID NOT NULL, created_at DATETIME NOT NULL, status INTEGER NOT NULL, FOREIGN KEY (from_contact) REFERENCES contact(contact_id) NOT NULL, FOREIGN KEY (to_contact) REFERENCES contact(contact_id) ON DELETE CASCADE);
+
+CREATE TABLE token (contact_id UUID NOT NULL, token CHAR(32) NOT NULL, created_at DATETIME NOT NULL, expired BOOL DEFAULT FALSE, FOREIGN KEY (contact_id) REFERENCES contact(contact_id));
 ```
 
 ## Install node modules

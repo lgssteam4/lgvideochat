@@ -44,7 +44,7 @@ router.post('/signup',
     }
 
 	try {
-		await service.createUser(res, req.body);
+		await service.signup(res, req.body);
 	} catch (err) {
 		console.error(`Error while getting users`, err.message);
 		next(err);

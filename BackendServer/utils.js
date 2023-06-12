@@ -1,7 +1,17 @@
 const jwt = require("jsonwebtoken");
+const nodemailer = require('nodemailer');
 const dotenv = require("dotenv");
 
 dotenv.config();
+
+const transport = nodemailer.createTransport({
+  service: "Gmail",
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASSWORD,
+  },
+});
+
 
 function getOffset(currentPage = 1, listPerPage) {
   return (currentPage - 1) * [listPerPage];
@@ -59,7 +69,25 @@ function comparePassword(plaintextPassword, hash) {
 }
 
 function generateAccessToken(user_id) {
-  return jwt.sign(user_id, process.env.TOKEN_SECRET, { expiresIn: process.env.TOKEN_EXPIRED_DURATION });
+	return jwt.sign({user_id}, process.env.TOKEN_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRED_DURATION });
+}
+
+function generateActivationToken(user_id) {
+	console.log(process.env.ACTIVATION_TOKEN_EXPIRED_DURATION);
+	return jwt.sign({user_id}, process.env.TOKEN_SECRET, { expiresIn: process.env.ACTIVATION_TOKEN_EXPIRED_DURATION });
+}
+
+function sendActivationEmail({src, dst, name, activationURL}) {
+	transport.sendMail({
+		from: src,
+		to: dst,
+		subject: "LGE Video Chat - Account Activation",
+		html: `<h1>Email Confirmation</h1>
+			<h2>Hello ${name}</h2>
+			<p>Thank you for registration. Please confirm your email by clicking on the following link</p>
+			<a href=${activationURL}> Click here</a>
+			</div>`,
+	}).catch(err => console.log(err));
 }
 
 
@@ -69,5 +97,7 @@ module.exports = {
 	validatePasswordComplexity,
 	validateIpAddress,
 	comparePassword,
-	generateAccessToken
+	generateAccessToken,
+	generateActivationToken,
+	sendActivationEmail
 }

@@ -1,10 +1,15 @@
 const { body } = require('express-validator');
-const bcrypt = require("bcrypt")
+const bcrypt = require("bcrypt");
+const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+
 const conn = require('./db');
 const utils = require('../utils');
 const config = require('../config');
 
-const userTable = "contacts";
+dotenv.config();
+
+const userTable = "contact";
 
 async function getAllUsers(res, page = 1) {
   const offset = utils.getOffset(page, config.listPerPage);
@@ -35,7 +40,7 @@ async function getUser(res, id) {
 	});
 }
 
-async function createUser(res, user) {
+async function signup(res, user) {
 	let hashedPassword = null;
 	let message = null;
 	let statusCode = null;
@@ -57,11 +62,22 @@ async function createUser(res, user) {
 		[user.email, user.first_name, user.last_name, hashedPassword, user.ip_address]
 	);
 
-
 	if (result.affectedRows) {
+		const user_db = await conn.query(
+			`SELECT contact_id, email, first_name from ${userTable}
+			WHERE email = ?`,
+			[user.email]
+		);
+
+		const token = utils.generateActivationToken(user_db[0].contact_id);
+
 		message = 'User created successfully. Please check your email to activate your account!';
 		statusCode = 200;
-		utils.sendActivationEmail();
+
+		// Generate token
+		const activationURL = `${process.env.BASE_URL}/user/verify/${user_db[0].contact_id}/${token}`;
+		utils.sendActivationEmail({src: process.env.MAIL_USER, dst: user_db[0].email, name: user_db[0].first_name, activationURL: activationURL});
+
 	} else {
 		message = 'Error creating user!';
 		statusCode = 400;
@@ -126,12 +142,11 @@ async function login(res, data) {
 			// Password is correct
 			if (result[0].is_active === 1) {
 				// Password is correct and account is active
-				// Create token and save to database
 				message = "Login successful"
 				statusCode = 200;
 
 				console.log("correct password");
-				const token = utils.generateAccessToken({ contact_id: result[0].contact_id });
+				const token = utils.generateAccessToken(result[0].contact_id);
 				return res.status(statusCode).json({message, token});
 			} else {
 				// Password is correct but account is not activated yet.
@@ -157,7 +172,7 @@ async function activateUser(res, {user_id, token}) {
 module.exports = {
 	getAllUsers,
 	getUser,
-	createUser,
+	signup,
 	updateUser,
 	deactivateUser,
 	login
