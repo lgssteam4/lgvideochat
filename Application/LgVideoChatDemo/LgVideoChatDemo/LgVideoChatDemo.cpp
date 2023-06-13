@@ -17,6 +17,10 @@
 #include "DisplayImage.h"
 #include "VideoClient.h"
 #include "litevad.h"
+#include "Login.h"
+#include "Join.h"
+#include "Update.h"
+
 
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
@@ -37,10 +41,13 @@
 #define IDM_DISCONNECT         1015
 #define IDM_START_SERVER       1016
 #define IDM_STOP_SERVER        1017
-#define IDC_LABEL_VAD_STATE    1018
-#define IDC_VAD_STATE_STATUS   1019
-#define IDC_CHECKBOX_AEC       1020 
-#define IDC_CHECKBOX_NS        1021
+#define IDM_LOGIN			   1018
+#define IDM_JOIN			   1019
+#define IDM_UPDATE			   1024
+#define IDC_LABEL_VAD_STATE    1020
+#define IDC_VAD_STATE_STATUS   1021
+#define IDC_CHECKBOX_AEC       1022 
+#define IDC_CHECKBOX_NS        1023
 // Global Variables:
 
 HWND hWndMain;
@@ -64,7 +71,6 @@ static ATOM                MyRegisterClass(HINSTANCE hInstance);
 static BOOL                InitInstance(HINSTANCE, int);
 static LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 static INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-
 
 static LRESULT OnCreate(HWND, UINT, WPARAM, LPARAM);
 static LRESULT OnSize(HWND, UINT, WPARAM, LPARAM);
@@ -250,6 +256,7 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    INT_PTR result_login;
     switch (message)
     {
     case WM_COMMAND:
@@ -350,6 +357,21 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
                 //EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), true);
                 OnStopServer(hWnd, message, wParam, lParam);
                 break;
+			case IDM_LOGIN:
+                result_login = DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGINDIALOG), hWnd, Login);
+                if (result_login == IDOK) {
+                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
+                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+                }
+				break;
+			case IDM_JOIN:
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_JOINDIALOG), hWnd, Join);
+				break;
+			case IDM_UPDATE:
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
+                break;
 
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -369,6 +391,14 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: Add any drawing code that uses hdc here...
             EndPaint(hWnd, &ps);
+        }
+        break;
+    case WM_CLOSE:
+        {
+            int checkOK = MessageBox(hWnd, L"Are you sure you want to exit the program?", L"LGVideoChatDemo Application", MB_ICONQUESTION | MB_OKCANCEL);
+            if (checkOK != IDCANCEL) {
+                DefWindowProc(hWnd, message, wParam, lParam);
+            }
         }
         break;
     case WM_DESTROY:
@@ -449,7 +479,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 {
     // Declare and initialize local constants.
     const int ImageListID = 0;
-    const int numButtons = 4;
+    const int numButtons = 7;
     const int bitmapSize = 16;
 
     const DWORD buttonStyles = BTNS_AUTOSIZE;
@@ -483,10 +513,13 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
     TBBUTTON tbButtons[numButtons] =
     {
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,     TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
+        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,     TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
         { MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER,TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
-        { MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"}
+        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER,TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
+        { MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
+        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
+        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
+        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,      TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Update" },
     };
 
     // Add buttons.
@@ -499,7 +532,6 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
     return hWndToolbar;
 }
-
 
 static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
