@@ -12,6 +12,7 @@
 #include "TcpSendRecv.h"
 #include "DisplayImage.h"
 #include "Camera.h"
+#include "ApplyOpenSSL.h"
 
 static  std::vector<uchar> sendbuff;//buffer for coding
 enum InputMode { ImageSize, Image };
@@ -21,6 +22,7 @@ static HANDLE hEndVideoServerEvent = INVALID_HANDLE_VALUE;
 static HANDLE hTimer = INVALID_HANDLE_VALUE;
 static SOCKET Listen = INVALID_SOCKET;
 static SOCKET Accept = INVALID_SOCKET;
+static SSL* sslSocketForServer;
 static cv::Mat ImageIn;
 static DWORD ThreadVideoServerID;
 static HANDLE hThreadVideoServer = INVALID_HANDLE_VALUE;
@@ -57,7 +59,7 @@ bool StopVideoServer(void)
 }
 bool IsVideoServerRunning(void)
 {
-	if (hThreadVideoServer = INVALID_HANDLE_VALUE) return false;
+	if (hThreadVideoServer == INVALID_HANDLE_VALUE) return false;
 	else return true;
 
 }
@@ -125,12 +127,18 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 		return 1;
 	}
 
+	// SSL 컨텍스트 생성 및 초기화
+	SSL_CTX* ctxForServer = createSSLContextForServer();
+
 	// 서버가 클라이언트의 연결을 수락하기 위해 사용될 소켓 생성
 	if ((Listen = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
 		std::cout << "socket() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
 	}
+
+	// SSL 소켓 생성
+	sslSocketForServer = createSSLSocket(ctxForServer, Listen);
 
 	// 클라이언트의 연결 요청 및 소켓 이벤트 처리 핸들
 	hListenEvent = WSACreateEvent();
@@ -141,7 +149,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	// 소켓과 이벤트 핸들을 연결 (FD_ACCEPT와 FD_CLOSE 이벤트 감시하도록 지정)
 	// FD_ACCEPT : 클라이언트의 연결 요청을 수락할 때 발생하는 이벤트
 	// FD_CLOSE : 클라이언트와의 연결이 종료될 때 발생하는 이벤트
-	if (WSAEventSelect(Listen, hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
+	if (WSAEventSelect(SSL_get_fd(sslSocketForServer), hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
 	{
 		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
@@ -151,14 +159,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	InternetAddr.sin_port = htons(VIDEO_PORT);
 
 	// 소켓에 IP 주소와 포트 번호를 바인딩
-	if (bind(Listen, (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
+	if (bind(SSL_get_fd(sslSocketForServer), (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
 	{
 		std::cout << "bind() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
 	}
 
 	// 클라이언트의 연결을 수신하기 위해 소켓을 대기 상태로 설정
-	if (listen(Listen, 5))
+	if (listen(SSL_get_fd(sslSocketForServer), 5))
 	{
 		std::cout << "listen() failed with error " << WSAGetLastError() << std::endl;
 		return 1;

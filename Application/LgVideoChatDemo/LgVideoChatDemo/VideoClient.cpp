@@ -12,7 +12,7 @@
 #include "Camera.h"
 #include "TcpSendRecv.h"
 #include "DisplayImage.h"
-
+#include "ApplyOpenSSL.h"
 
 enum InputMode { ImageSize, Image };
 static  std::vector<uchar> sendbuff;//buffer for coding
@@ -130,6 +130,7 @@ bool StopVideoClient(void)
 	;
 	return true;
 }
+
 bool IsVideoClientRunning(void)
 {
 	if (hThreadVideoClient == INVALID_HANDLE_VALUE)
