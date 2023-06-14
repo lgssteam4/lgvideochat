@@ -12,12 +12,12 @@
 #include "Camera.h"
 #include "TcpSendRecv.h"
 #include "DisplayImage.h"
-
+#include "ApplyOpenSSL.h"
 
 enum InputMode { ImageSize, Image };
 static  std::vector<uchar> sendbuff;//buffer for coding
-static HANDLE hClientEvent=INVALID_HANDLE_VALUE;
-static HANDLE hEndVideoClientEvent=INVALID_HANDLE_VALUE;
+static HANDLE hClientEvent = INVALID_HANDLE_VALUE;
+static HANDLE hEndVideoClientEvent = INVALID_HANDLE_VALUE;
 static HANDLE hTimer = INVALID_HANDLE_VALUE;
 static SOCKET Client = INVALID_SOCKET;
 static cv::Mat ImageIn;
@@ -30,311 +30,322 @@ static void VideoClientCleanup(void);
 
 static void VideoClientSetExitEvent(void)
 {
-  if (hEndVideoClientEvent != INVALID_HANDLE_VALUE)
-  SetEvent(hEndVideoClientEvent);
+	if (hEndVideoClientEvent != INVALID_HANDLE_VALUE)
+		SetEvent(hEndVideoClientEvent);
 }
 static void VideoClientCleanup(void)
 {
-    std::cout << "VideoClientCleanup" << std::endl;
+	std::cout << "VideoClientCleanup" << std::endl;
 
-    if (hClientEvent != INVALID_HANDLE_VALUE)
-    {
-        CloseHandle(hClientEvent);
-        hClientEvent = INVALID_HANDLE_VALUE;
-    }
-    if (hEndVideoClientEvent != INVALID_HANDLE_VALUE)
-    {
-        CloseHandle(hEndVideoClientEvent);
-        hEndVideoClientEvent = INVALID_HANDLE_VALUE;
-    }
-    if (hTimer!= INVALID_HANDLE_VALUE)
-    {
-        CloseHandle(hTimer);
-        hTimer = INVALID_HANDLE_VALUE;
-    }
-    if (Client != INVALID_SOCKET)
-    {
-        closesocket(Client);
-        Client = INVALID_SOCKET;
-    }
+	if (hClientEvent != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(hClientEvent);
+		hClientEvent = INVALID_HANDLE_VALUE;
+	}
+	if (hEndVideoClientEvent != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(hEndVideoClientEvent);
+		hEndVideoClientEvent = INVALID_HANDLE_VALUE;
+	}
+	if (hTimer != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(hTimer);
+		hTimer = INVALID_HANDLE_VALUE;
+	}
+	if (Client != INVALID_SOCKET)
+	{
+		closesocket(Client);
+		Client = INVALID_SOCKET;
+	}
 }
 
 bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 {
-    int iResult;
-    struct addrinfo   hints;
-    struct addrinfo* result = NULL;
-    char remoteportno[128];
+	int iResult;
+	struct addrinfo   hints;
+	struct addrinfo* result = NULL;
+	char remoteportno[128];
 
-    sprintf_s(remoteportno,sizeof(remoteportno), "%d", remoteport);
+	sprintf_s(remoteportno, sizeof(remoteportno), "%d", remoteport);
 
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
 
-    iResult = getaddrinfo(remotehostname, remoteportno, &hints, &result);
-    if (iResult != 0)
-    {
-        std::cout << "getaddrinfo: Failed" << std::endl;
-        return false;
-    }
-    if (result == NULL)
-    {
-        std::cout << "getaddrinfo: Failed" << std::endl;
-        return false;
-    }
+	// 서버의 주소 정보를 가져옴
+	iResult = getaddrinfo(remotehostname, remoteportno, &hints, &result);
+	if (iResult != 0)
+	{
+		std::cout << "getaddrinfo: Failed" << std::endl;
+		return false;
+	}
 
-    if ((Client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+	if (result == NULL)
+	{
+		std::cout << "getaddrinfo: Failed" << std::endl;
+		return false;
+	}
 
-    {
-        freeaddrinfo(result);
-        std::cout << "video client socket() failed with error "<< WSAGetLastError() << std::endl;
-        return false;
-    }
+	// 클라이언트 소켓 생성
+	// AF_INET : IPv4 주소 체계 사용
+	// SOCK_STREAM : TCP 소켓 지정
+	if ((Client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+	{
+		freeaddrinfo(result);
+		std::cout << "video client socket() failed with error " << WSAGetLastError() << std::endl;
+		return false;
+	}
 
-    //----------------------
-    // Connect to server.
-    iResult = connect(Client, result->ai_addr, (int)result->ai_addrlen);
-    freeaddrinfo(result);
-    if (iResult == SOCKET_ERROR) {
-        std::cout << "connect function failed with error : "<< WSAGetLastError() << std::endl;
-        iResult = closesocket(Client);
-        Client = INVALID_SOCKET;
-        if (iResult == SOCKET_ERROR)
-            std::cout << "closesocket function failed with error :"<< WSAGetLastError() << std::endl;
-        return false;
-    }
-    return true;
-
+	//----------------------
+	// Connect to server.
+	iResult = connect(Client, result->ai_addr, (int)result->ai_addrlen);
+	freeaddrinfo(result);
+	if (iResult == SOCKET_ERROR) {
+		std::cout << "connect function failed with error : " << WSAGetLastError() << std::endl;
+		iResult = closesocket(Client);
+		Client = INVALID_SOCKET;
+		if (iResult == SOCKET_ERROR)
+			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+		return false;
+	}
+	return true;
 }
+
 bool StartVideoClient(void)
 {
- hThreadVideoClient = CreateThread(NULL, 0, ThreadVideoClient, NULL, 0, &ThreadVideoClientID);
- return true;
+	hThreadVideoClient = CreateThread(NULL, 0, ThreadVideoClient, NULL, 0, &ThreadVideoClientID);
+	return true;
 }
 
 bool StopVideoClient(void)
 {
-    VideoClientSetExitEvent();
-    if (hThreadVideoClient != INVALID_HANDLE_VALUE)
-    {
-        WaitForSingleObject(hThreadVideoClient, INFINITE);
-        CloseHandle(hThreadVideoClient);
-        hThreadVideoClient = INVALID_HANDLE_VALUE;
-    }
-;
-    return true;
+	VideoClientSetExitEvent();
+	if (hThreadVideoClient != INVALID_HANDLE_VALUE)
+	{
+		WaitForSingleObject(hThreadVideoClient, INFINITE);
+		CloseHandle(hThreadVideoClient);
+		hThreadVideoClient = INVALID_HANDLE_VALUE;
+	}
+	;
+	return true;
 }
+
 bool IsVideoClientRunning(void)
 {
-    if (hThreadVideoClient == INVALID_HANDLE_VALUE)
-    {
-        return false;
-    }
-    else return true;
+	if (hThreadVideoClient == INVALID_HANDLE_VALUE)
+	{
+		return false;
+	}
+	else return true;
 }
 
 static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
-{    
-    HANDLE ghEvents[3];
-    int NumEvents;
-    int iResult;
-    DWORD dwEvent;
-    LARGE_INTEGER liDueTime;
-    InputMode Mode = ImageSize;
-    unsigned int InputBytesNeeded=sizeof(unsigned int);
-    unsigned int SizeofImage;
-    char* InputBuffer = NULL;
-    char* InputBufferWithOffset = NULL;
-    unsigned int CurrentInputBufferSize = 1024 * 10;
-  
-    InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
-    InputBufferWithOffset = InputBuffer;
+{
+	HANDLE ghEvents[3];
+	int NumEvents;
+	int iResult;
+	DWORD dwEvent;
+	LARGE_INTEGER liDueTime;
+	InputMode Mode = ImageSize;
+	unsigned int InputBytesNeeded = sizeof(unsigned int);
+	unsigned int SizeofImage;
+	char* InputBuffer = NULL;
+	char* InputBufferWithOffset = NULL;
+	unsigned int CurrentInputBufferSize = 1024 * 10;
 
-    if (InputBuffer == NULL)
-    {
-      std::cout << "InputBuffer Realloc failed" << std::endl;
-      return 1;
-    }
- 
-    liDueTime.QuadPart = 0LL;
+	InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
+	InputBufferWithOffset = InputBuffer;
 
-    hTimer = CreateWaitableTimer(NULL, FALSE, NULL);
+	if (InputBuffer == NULL)
+	{
+		std::cout << "InputBuffer Realloc failed" << std::endl;
+		return 1;
+	}
 
-    if (NULL == hTimer)
-    {
-        std::cout << "CreateWaitableTimer failed "<< GetLastError() << std::endl;
-        return 2;
-    }
+	liDueTime.QuadPart = 0LL;
 
-    if (!SetWaitableTimer(hTimer, &liDueTime, VIDEO_FRAME_DELAY, NULL, NULL, 0))
-    {
-        std::cout << "SetWaitableTimer failed  " << GetLastError() << std::endl;
-        return 3;
-    }
-    hClientEvent = WSACreateEvent();
-    hEndVideoClientEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	// 타이머 생성
+	hTimer = CreateWaitableTimer(NULL, FALSE, NULL);
 
-    if (WSAEventSelect(Client, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+	if (NULL == hTimer)
+	{
+		std::cout << "CreateWaitableTimer failed " << GetLastError() << std::endl;
+		return 2;
+	}
 
-    {
-        std::cout << "WSAEventSelect() failed with error "<< WSAGetLastError() << std::endl;
-        iResult = closesocket(Client);
-        Client = INVALID_SOCKET;
-        if (iResult == SOCKET_ERROR)
-            std::cout << "closesocket function failed with error : " << WSAGetLastError() << std::endl;
-        return 4;
-    }
-    ghEvents[0] = hEndVideoClientEvent;
-    ghEvents[1] = hClientEvent;
-    ghEvents[2] = hTimer;
-    NumEvents = 3;
+	// 타이머 설정
+	if (!SetWaitableTimer(hTimer, &liDueTime, VIDEO_FRAME_DELAY, NULL, NULL, 0))
+	{
+		std::cout << "SetWaitableTimer failed  " << GetLastError() << std::endl;
+		return 3;
+	}
 
-    while (1) {
-     dwEvent = WaitForMultipleObjects(
-         NumEvents,        // number of objects in array
-         ghEvents,       // array of objects
-         FALSE,           // wait for any object
-         INFINITE);  // INFINITE) wait
+	// 클라이언트 이벤트 핸들 생성
+	hClientEvent = WSACreateEvent();
 
-     if (dwEvent == WAIT_OBJECT_0) break;
-     else if (dwEvent == WAIT_OBJECT_0 + 1)
-     {
-         WSANETWORKEVENTS NetworkEvents;
-         if (SOCKET_ERROR == WSAEnumNetworkEvents(Client, hClientEvent, &NetworkEvents))
-         {
-             std::cout << "WSAEnumNetworkEvent: "<< WSAGetLastError() << "dwEvent "<< dwEvent << " lNetworkEvent "<<std::hex<< NetworkEvents.lNetworkEvents<< std::endl;
-             NetworkEvents.lNetworkEvents = 0;
-         }
-         else
-         {
-             if (NetworkEvents.lNetworkEvents & FD_READ)
-             {
-                 if (NetworkEvents.iErrorCode[FD_READ_BIT] != 0)
-                 {
-                     std::cout << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT]<< std::endl;
-                 }
-                 else
-                 {
-                   int iResult;
-                   iResult = ReadDataTcpNoBlock(Client, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
-                   if (iResult != SOCKET_ERROR)
-                   {
-                       if (iResult == 0)
-                       {
-                           Mode = ImageSize;
-                           InputBytesNeeded = sizeof(unsigned int);
-                           InputBufferWithOffset = InputBuffer;
-                           PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
-                           std::cout << "Connection closed on Recv" << std::endl;
-                           break;
-                       }
-                       else
-                       {
-                           InputBytesNeeded -= iResult;
-                           InputBufferWithOffset += iResult;
-                           if (InputBytesNeeded == 0)
-                           {
-                               if (Mode == ImageSize)
-                               {
-                                   Mode = Image;
-                                   InputBufferWithOffset = InputBuffer;;
-                                   memcpy(&SizeofImage, InputBuffer, sizeof(SizeofImage));
-                                   SizeofImage = ntohl(SizeofImage);
-                                   InputBytesNeeded = SizeofImage;
-                                   if (InputBytesNeeded > CurrentInputBufferSize)
-                                   {   
-                                       CurrentInputBufferSize = InputBytesNeeded + (10 * 1024);
-                                       InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
-                                       if (InputBuffer == NULL)
-                                       {
-                                           std::cout << "std::realloc failed " << std::endl;
-                                       }
-                                   }
-                                   InputBufferWithOffset = InputBuffer;;
-                               }
-                               else if (Mode == Image)
-                               {
-                                   Mode = ImageSize;
-                                   InputBytesNeeded = sizeof(unsigned int);
-                                   InputBufferWithOffset = InputBuffer;
-                                   cv::imdecode(cv::Mat(SizeofImage, 1, CV_8UC1, InputBuffer), cv::IMREAD_COLOR, &ImageIn);
-                                   DispayImage(ImageIn);
-                               }
-                           }
+	// 클라이언트 종료 이벤트 핸들러 생성
+	hEndVideoClientEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-                       }
-                   }
-                  else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+	// 소켓과 이벤트 핸들을 연결 (FD_READ와 FD_CLOSE 이벤트 감시하도록 지정)
+	if (WSAEventSelect(Client, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+	{
+		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
+		iResult = closesocket(Client);
+		Client = INVALID_SOCKET;
+		if (iResult == SOCKET_ERROR)
+			std::cout << "closesocket function failed with error : " << WSAGetLastError() << std::endl;
+		return 4;
+	}
+	ghEvents[0] = hEndVideoClientEvent;
+	ghEvents[1] = hClientEvent;
+	ghEvents[2] = hTimer;
+	NumEvents = 3;
 
-                 }
+	while (1) {
+		dwEvent = WaitForMultipleObjects(
+			NumEvents,		// number of objects in array
+			ghEvents,		// array of objects
+			FALSE,			// wait for any object
+			INFINITE);		// INFINITE) wait
 
-             }
-             if (NetworkEvents.lNetworkEvents & FD_WRITE)
-             {
-                 if (NetworkEvents.iErrorCode[FD_WRITE_BIT] != 0)
-                 {
-                     std::cout << "FD_WRITE failed with error "<< NetworkEvents.iErrorCode[FD_WRITE_BIT] << std::endl;
-                 }
-                 else
-                 {
-                     std::cout << "FD_WRITE" << std::endl;
-                 }
-             }
-         
-             if (NetworkEvents.lNetworkEvents & FD_CLOSE)
-             {
-                 if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
+		// 클라이언트 종료 이벤트
+		if (dwEvent == WAIT_OBJECT_0) break;
+		// 클라이언트 소켓의 네트워크 이벤트 처리
+		else if (dwEvent == WAIT_OBJECT_0 + 1)
+		{
+			WSANETWORKEVENTS NetworkEvents;
+			// 클라이언트 소켓의 네트워크 이벤트를 가져옴
+			if (SOCKET_ERROR == WSAEnumNetworkEvents(Client, hClientEvent, &NetworkEvents))
+			{
+				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << "dwEvent " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
+				NetworkEvents.lNetworkEvents = 0;
+			}
+			else
+			{
+				// 데이터를 읽어옴
+				if (NetworkEvents.lNetworkEvents & FD_READ)
+				{
+					if (NetworkEvents.iErrorCode[FD_READ_BIT] != 0)
+					{
+						std::cout << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT] << std::endl;
+					}
+					else
+					{
+						int iResult;
+						iResult = ReadDataTcpNoBlock(Client, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
+						if (iResult != SOCKET_ERROR)
+						{
+							if (iResult == 0)
+							{
+								Mode = ImageSize;
+								InputBytesNeeded = sizeof(unsigned int);
+								InputBufferWithOffset = InputBuffer;
+								PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
+								std::cout << "Connection closed on Recv" << std::endl;
+								break;
+							}
+							else
+							{
+								InputBytesNeeded -= iResult;
+								InputBufferWithOffset += iResult;
+								if (InputBytesNeeded == 0)
+								{
+									if (Mode == ImageSize)
+									{
+										Mode = Image;
+										InputBufferWithOffset = InputBuffer;;
+										memcpy(&SizeofImage, InputBuffer, sizeof(SizeofImage));
+										SizeofImage = ntohl(SizeofImage);
+										InputBytesNeeded = SizeofImage;
+										if (InputBytesNeeded > CurrentInputBufferSize)
+										{
+											CurrentInputBufferSize = InputBytesNeeded + (10 * 1024);
+											InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
+											if (InputBuffer == NULL)
+											{
+												std::cout << "std::realloc failed " << std::endl;
+											}
+										}
+										InputBufferWithOffset = InputBuffer;;
+									}
+									else if (Mode == Image)
+									{
+										Mode = ImageSize;
+										InputBytesNeeded = sizeof(unsigned int);
+										InputBufferWithOffset = InputBuffer;
+										cv::imdecode(cv::Mat(SizeofImage, 1, CV_8UC1, InputBuffer), cv::IMREAD_COLOR, &ImageIn);
+										DispayImage(ImageIn);
+									}
+								}
+							}
+						}
+						else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+					}
+				}
+				// 데이터를 전송할 수 있는 상태임을 의미
+				if (NetworkEvents.lNetworkEvents & FD_WRITE)
+				{
+					if (NetworkEvents.iErrorCode[FD_WRITE_BIT] != 0)
+					{
+						std::cout << "FD_WRITE failed with error " << NetworkEvents.iErrorCode[FD_WRITE_BIT] << std::endl;
+					}
+					else
+					{
+						std::cout << "FD_WRITE" << std::endl;
+					}
+				}
+				// 클라이언트 소켓 닫힘을 의미
+				if (NetworkEvents.lNetworkEvents & FD_CLOSE)
+				{
+					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
+					{
+						std::cout << "FD_CLOSE failed with error " << NetworkEvents.iErrorCode[FD_CLOSE_BIT] << std::endl;
+					}
+					else
+					{
+						std::cout << "FD_CLOSE" << std::endl;
+						PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
+						break;
+					}
+				}
+			}
+		}
+		// hTimer 이벤트가 발생한 경우, 카메라 프레임을 가져와 서버에 전송합니다.
+		else if (dwEvent == WAIT_OBJECT_0 + 2)
+		{
+			unsigned int numbytes;
 
-                 {
-                     std::cout << "FD_CLOSE failed with error "<< NetworkEvents.iErrorCode[FD_CLOSE_BIT] << std::endl;
-                 }
-                 else
-                 {
-                     std::cout << "FD_CLOSE" << std::endl;
-                     PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
-                     break;
-                  }
-
-             }
-          }
-
-       }
-     else if (dwEvent == WAIT_OBJECT_0 + 2)
-      {
-         unsigned int numbytes;
-
-         if (!GetCameraFrame(sendbuff))
-         {
-             std::cout << "Camera Frame Empty" << std::endl;
-         }
-         numbytes = htonl((unsigned long)sendbuff.size());
-         if (WriteDataTcp(Client, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
-         {
-             if (WriteDataTcp(Client, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
-             {
-                 std::cout << "WriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
-                 PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
-                 break;
-             }
-         }
-         else
-         {
-             std::cout << "WriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
-             PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
-             break;
-         }
-      }
-     }
-    if (InputBuffer)
-    {
-        std::free(InputBuffer);
-        InputBuffer = nullptr;
-    }
-    VideoClientCleanup();
-    std::cout << "Video Client Exiting" << std::endl;
-    return 0;
+			if (!GetCameraFrame(sendbuff))
+			{
+				std::cout << "Camera Frame Empty" << std::endl;
+			}
+			numbytes = htonl((unsigned long)sendbuff.size());
+			if (WriteDataTcp(Client, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
+			{
+				if (WriteDataTcp(Client, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
+				{
+					std::cout << "WriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
+					PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
+					break;
+				}
+			}
+			else
+			{
+				std::cout << "WriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
+				PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
+				break;
+			}
+		}
+	}
+	if (InputBuffer)
+	{
+		std::free(InputBuffer);
+		InputBuffer = nullptr;
+	}
+	VideoClientCleanup();	// 연결이 종료된 서버와 관련된 자원을 정리
+	std::cout << "Video Client Exiting" << std::endl;
+	return 0;
 }
 //-----------------------------------------------------------------
 // END of File
