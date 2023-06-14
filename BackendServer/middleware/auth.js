@@ -1,12 +1,12 @@
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const conn = require('../services/db');
-
+const { addToken, getToken, blacklistToken } = require('../services/token');
 
 dotenv.config();
 
 const userTable = 'contact';
-const userQuery = `SELECT 1 FROM ${userTable} WHERE contact_id = ? AND is_active = true`
+const userQuery = `SELECT is_active, is_locked FROM ${userTable} WHERE contact_id = ?`;
 
 async function auth(req, res, next) {
 	try {
@@ -14,74 +14,41 @@ async function auth(req, res, next) {
 		const token = authHeader && authHeader.split(' ')[1];
 
 		if (token == null) throw 'No authorization header';
-
+		
 		const decodedToken = await jwt.verify(token, process.env.TOKEN_SECRET);
-		const contactId = decodedToken.contact_id;
+		const user_id = decodedToken.user_id;
 
-		const result = await conn.query(userQuery, [contactId]);
+		const result = await conn.query(userQuery, [user_id]);
 
 		if (result && result.length === 1) {
+			if (result[0].is_locked) {
+				res.status(403).json({message: "Your account is locked"});
+			} 
+
+			if (!result[0].is_active) {
+				res.status(403).json({message: "Your account is inactive"});
+			}
+
 			next();
 		} else {
 			throw 'User doest not exist!';
 		}
 
 	} catch (err) {
-		console.log(err);
-		res.status(401).json({
-			error: 'Invalid request!'
-		});
-	}
-};
-
-function getAuth(req, res, next) {
-	try {
-		const token = req.headers.authorization.split(' ')[1];
-		const decodedToken = jwt.verify(token, SECRET);
-		const userId = decodedToken.userId;
-
-		if (req.param.user_id && req.body.userId !== userId) {
-			throw 'Invalid user ID';
+		if (err.name === 'TokenExpiredError') {
+			res.status(401).json({
+				error: 'Token expired'
+			});
 		} else {
-			const result = conn.query(userQuery, [userId]);
-			if (result && result.length === 1) {
-				next();
-			} else {
-				throw 'Invalid user ID';
-			}
+			console.log(err);
+			res.status(400).json({
+				error: err
+			});
+			
 		}
-	} catch {
-		res.status(401).json({
-			error: new Error('Invalid request!')
-		});
-	}
-};
-
-function postAuth(req, res, next) {
-	try {
-		const token = req.headers.authorization.split(' ')[1];
-		const decodedToken = jwt.verify(token, SECRET);
-		const userId = decodedToken.userId;
-
-		if (req.body.user_id && req.body.userId !== userId) {
-			throw 'Invalid user ID';
-		} else {
-			const result = conn.query(userQuery, [userId]);
-			if (result && result.length === 1) {
-				next();
-			} else {
-				throw 'Invalid user ID';
-			}
-		}
-	} catch {
-		res.status(401).json({
-			error: new Error('Invalid request!')
-		});
 	}
 };
 
 module.exports = {
 	auth,
-	getAuth,
-	postAuth
 }
