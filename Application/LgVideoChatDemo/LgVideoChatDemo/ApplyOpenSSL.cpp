@@ -111,14 +111,31 @@ SSL* createSSLSocket(SSL_CTX* ctx, int socket)
 
     // SSL/TLS 핸드셰이크 수행
     int ret = SSL_accept(ssl);
-    if (ret != 1) {
-        std::cout << "[Test.lim] Error: SSL_accept ret " << ret << std::endl;
-        handleConnectionEror(ssl, ret);
-        //err = ERR_get_error();
-        //ERR_error_string(err, err_buf);
-        //std::cout << "[Test.lim] " << err_buf << std::endl;
-        SSL_free(ssl);
-        return NULL;
+    if (ret == 1)
+    {
+        std::cout << "[Test.lim] Success: SSL_accept" << std::endl;
+    }
+    else
+    {
+        int error = SSL_get_error(ssl, ret);
+        while (error == SSL_ERROR_WANT_READ)
+        {
+            ret = SSL_accept(ssl);
+            if (ret == 1)
+            {
+                std::cout << "[Test.lim] Success: SSL_accept" << std::endl;
+                break;
+            }
+            error = SSL_get_error(ssl, ret);
+        }
+
+        if (ret <= 0)
+        {
+            std::cout << "[Test.lim] Error: SSL_accept ret " << ret << std::endl;
+            handleConnectionError(ssl, ret);
+            SSL_free(ssl);
+            return NULL;
+        }
     }
 
     return ssl;
@@ -142,9 +159,10 @@ void printOpenSSLErrors()
 }
 
 // 소켓 연결 종료 및 에러 처리
-void handleConnectionEror(SSL* ssl, int ret)
+void handleConnectionError(SSL* ssl, int ret)
 {
     int error = SSL_get_error(ssl, ret);
+
     switch (error) {
     case SSL_ERROR_ZERO_RETURN:
         // 연결 종료
