@@ -21,8 +21,11 @@ static HANDLE hListenEvent = INVALID_HANDLE_VALUE;
 static HANDLE hEndVideoServerEvent = INVALID_HANDLE_VALUE;
 static HANDLE hTimer = INVALID_HANDLE_VALUE;
 static SOCKET Listen = INVALID_SOCKET;
+//static SOCKET SSLListen = INVALID_SOCKET;
 static SOCKET Accept = INVALID_SOCKET;
-static SSL* sslSocketForServer;
+static SOCKET SSLAccept = INVALID_SOCKET;
+SSL_CTX* ctxForServer = NULL;
+SSL* SSLSocketForServer = NULL;
 static cv::Mat ImageIn;
 static DWORD ThreadVideoServerID;
 static HANDLE hThreadVideoServer = INVALID_HANDLE_VALUE;
@@ -100,6 +103,12 @@ static void VideoServerCleanup(void)
 	{
 		closesocket(Accept);
 		Accept = INVALID_SOCKET;
+		if (SSLAccept != INVALID_SOCKET)
+		{
+			SSLAccept = INVALID_SOCKET;
+			SSL_free(SSLSocketForServer);
+			SSL_CTX_free(ctxForServer);
+		}
 	}
 }
 
@@ -127,18 +136,12 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 		return 1;
 	}
 
-	// SSL 컨텍스트 생성 및 초기화
-	SSL_CTX* ctxForServer = createSSLContextForServer();
-
 	// 서버가 클라이언트의 연결을 수락하기 위해 사용될 소켓 생성
 	if ((Listen = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
-		std::cout << "socket() failed with error " << WSAGetLastError() << std::endl;
+		std::cout << "listen socket() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
 	}
-
-	// SSL 소켓 생성
-	sslSocketForServer = createSSLSocket(ctxForServer, Listen);
 
 	// 클라이언트의 연결 요청 및 소켓 이벤트 처리 핸들
 	hListenEvent = WSACreateEvent();
@@ -149,7 +152,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	// 소켓과 이벤트 핸들을 연결 (FD_ACCEPT와 FD_CLOSE 이벤트 감시하도록 지정)
 	// FD_ACCEPT : 클라이언트의 연결 요청을 수락할 때 발생하는 이벤트
 	// FD_CLOSE : 클라이언트와의 연결이 종료될 때 발생하는 이벤트
-	if (WSAEventSelect(SSL_get_fd(sslSocketForServer), hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
+	if (WSAEventSelect(Listen, hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
 	{
 		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
@@ -159,14 +162,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	InternetAddr.sin_port = htons(VIDEO_PORT);
 
 	// 소켓에 IP 주소와 포트 번호를 바인딩
-	if (bind(SSL_get_fd(sslSocketForServer), (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
+	if (bind(Listen, (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
 	{
 		std::cout << "bind() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
 	}
 
 	// 클라이언트의 연결을 수신하기 위해 소켓을 대기 상태로 설정
-	if (listen(SSL_get_fd(sslSocketForServer), 5))
+	if (listen(Listen, 5))
 	{
 		std::cout << "listen() failed with error " << WSAGetLastError() << std::endl;
 		return 1;
@@ -213,8 +216,39 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							LARGE_INTEGER liDueTime;
 
+							// SSL 초기화
+							initializeSSL();
+							std::cout << "[Test.lim] Server: Success initializeSSL" << std::endl;
+
+							// SSL 컨텍스트 생성 및 초기화
+							ctxForServer = createSSLContextForServer();
+							if (ctxForServer == NULL)
+							{
+								std::cout << "[Test.lim] Server: Error createSSLContextForServer" << std::endl;
+								break;
+							}
+							std::cout << "[Test.lim] Server: Success createSSLContextForServer" << std::endl;
+
 							// Accept a new connection, and add it to the socket and event lists
 							Accept = accept(Listen, (struct sockaddr*)&sa, &sa_len);
+							std::cout << "[Test.lim] Server: Success accept" << std::endl;
+
+							// SSL 소켓 생성
+							SSLSocketForServer = createSSLSocket(ctxForServer, Accept);
+							if (SSLSocketForServer == NULL)
+							{
+								std::cout << "[Test.lim] Error: createSSLSocket" << std::endl;
+								SSL_CTX_free(ctxForServer);
+								break;
+							}
+							SSLAccept = SSL_get_fd(SSLSocketForServer);
+							if (SSLAccept == INVALID_SOCKET)
+							{
+								std::cout << "[Test.lim] Error: SSL_get_fd" << std::endl;
+								SSL_free(SSLSocketForServer);
+								SSL_CTX_free(ctxForServer);
+								break;
+							}
 
 							int err = getnameinfo((struct sockaddr*)&sa, sa_len, RemoteIp, sizeof(RemoteIp), 0, 0, NI_NUMERICHOST);
 							if (err != 0) {
@@ -238,7 +272,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							// 연결 상태를 알리는 메시지 전송
 							PostMessage(hWndMain, WM_REMOTE_CONNECT, 0, 0);
 							hAcceptEvent = WSACreateEvent();
-							WSAEventSelect(Accept, hAcceptEvent, FD_READ | FD_WRITE | FD_CLOSE);
+							WSAEventSelect(SSLAccept, hAcceptEvent, FD_READ | FD_WRITE | FD_CLOSE);
 							ghEvents[2] = hAcceptEvent;
 							if ((Loopback) || (LoopbackOverRide))  NumEvents = 3;
 							else
@@ -299,7 +333,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 		else if (dwEvent == WAIT_OBJECT_0 + 2)
 		{
 			WSANETWORKEVENTS NetworkEvents;
-			if (SOCKET_ERROR == WSAEnumNetworkEvents(Accept, hAcceptEvent, &NetworkEvents))
+			if (SOCKET_ERROR == WSAEnumNetworkEvents(SSLAccept, hAcceptEvent, &NetworkEvents))
 			{
 				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
 				NetworkEvents.lNetworkEvents = 0;
@@ -321,20 +355,20 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 						int bytestosend;
 						int iResult;
 
-						ioctlsocket(Accept, FIONREAD, &bytesAvailable);
+						ioctlsocket(SSLAccept, FIONREAD, &bytesAvailable);
 						if (bytesAvailable >= 0)
 						{
 							buffer = new (std::nothrow) unsigned char[bytesAvailable];
 							//std::cout << "FD_READ "<< bytesAvailable << std::endl;
-							iResult = ReadDataTcpNoBlock(Accept, buffer, bytesAvailable);
+							iResult = SSLReadDataTcpNoBlock(SSLSocketForServer, buffer, bytesAvailable);
 							if (iResult > 0)
 							{
 								bytestosend = iResult;
-								iResult = WriteDataTcp(Accept, buffer, bytestosend);
+								iResult = SSLWriteDataTcp(SSLSocketForServer, buffer, bytestosend);
 								delete[] buffer;
 								if (iResult == SOCKET_ERROR)
 								{
-									std::cout << "WriteDataTcp failed: " << WSAGetLastError() << std::endl;
+									std::cout << "SSLWriteDataTcp failed: " << WSAGetLastError() << std::endl;
 								}
 							}
 							else if (iResult == 0)
@@ -344,7 +378,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							}
 							else
 							{
-								std::cout << "ReadDataTcpNoBlock failed:" << WSAGetLastError() << std::endl;
+								std::cout << "SSLReadDataTcpNoBlock failed:" << WSAGetLastError() << std::endl;
 							}
 						}
 					}
@@ -352,7 +386,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 					{
 						int iResult;
 
-						iResult = ReadDataTcpNoBlock(Accept, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
+						iResult = SSLReadDataTcpNoBlock(SSLSocketForServer, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
 						if (iResult != SOCKET_ERROR)
 						{
 							if (iResult == 0)
@@ -397,7 +431,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							}
 						}
-						else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						else std::cout << "SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
 					}
 				}
 				// FD_WRITE 이벤트가 발생한 경우, 데이터 송신할 수 있는 상태임을 의미
@@ -437,16 +471,16 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				std::cout << "Camera Frame Empty" << std::endl;
 			}
 			numbytes = htonl((unsigned long)sendbuff.size());
-			if (WriteDataTcp(Accept, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
+			if (SSLWriteDataTcp(SSLSocketForServer, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
 			{
-				if (WriteDataTcp(Accept, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
+				if (SSLWriteDataTcp(SSLSocketForServer, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
 				{
-					std::cout << "WriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
+					std::cout << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
 					CleanUpClosedConnection();
 				}
 			}
 			else {
-				std::cout << "WriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
+				std::cout << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
 				CleanUpClosedConnection();
 			}
 		}
@@ -463,6 +497,12 @@ static void CleanUpClosedConnection(void)
 	{
 		closesocket(Accept);
 		Accept = INVALID_SOCKET;
+		if (SSLAccept != INVALID_SOCKET)
+		{
+			SSLAccept = INVALID_SOCKET;
+			SSL_free(SSLSocketForServer);
+			SSL_CTX_free(ctxForServer);
+		}
 		PostMessage(hWndMain, WM_REMOTE_LOST, 0, 0);
 	}
 	if (hAcceptEvent != INVALID_HANDLE_VALUE)

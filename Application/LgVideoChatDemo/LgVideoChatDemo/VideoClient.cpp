@@ -20,6 +20,9 @@ static HANDLE hClientEvent = INVALID_HANDLE_VALUE;
 static HANDLE hEndVideoClientEvent = INVALID_HANDLE_VALUE;
 static HANDLE hTimer = INVALID_HANDLE_VALUE;
 static SOCKET Client = INVALID_SOCKET;
+static SOCKET SSLClient = INVALID_SOCKET;
+SSL_CTX* ctxForClient = NULL;
+SSL* SSLSocketForClient = NULL;
 static cv::Mat ImageIn;
 static DWORD ThreadVideoClientID;
 static HANDLE hThreadVideoClient = INVALID_HANDLE_VALUE;
@@ -56,11 +59,19 @@ static void VideoClientCleanup(void)
 	{
 		closesocket(Client);
 		Client = INVALID_SOCKET;
+		if (SSLClient != INVALID_SOCKET)
+		{
+			SSLClient = INVALID_SOCKET;
+			SSL_free(SSLSocketForClient);
+			SSL_CTX_free(ctxForClient);
+		}
 	}
 }
 
 bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 {
+	std::cout << "[Test.lim] Client: ConnectToserver" << std::endl;
+
 	int iResult;
 	struct addrinfo   hints;
 	struct addrinfo* result = NULL;
@@ -97,7 +108,8 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 		return false;
 	}
 
-	//----------------------
+	std::cout << "[Test.lim] Client: Success socket" << std::endl;
+
 	// Connect to server.
 	iResult = connect(Client, result->ai_addr, (int)result->ai_addrlen);
 	freeaddrinfo(result);
@@ -109,6 +121,69 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
 		return false;
 	}
+	std::cout << "[Test.lim] Client: Success connect" << std::endl;
+
+	// SSL 초기화
+	initializeSSL();
+	std::cout << "[Test.lim] Client: Success initializeSSL" << std::endl;
+
+	// SSL 컨텍스트 생성 및 초기화
+	ctxForClient = createSSLContextForClient();
+	if (ctxForClient == NULL)
+	{
+		std::cout << "[Test.lim] Client: Error createSSLContextForClient" << std::endl;
+		iResult = closesocket(Client);
+		Client = INVALID_SOCKET;
+		if (iResult == SOCKET_ERROR)
+			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+		return false;
+	}
+	std::cout << "[Test.lim] Client: Success createSSLContextForClient" << std::endl;
+
+	// SSL 소켓 생성
+	SSLSocketForClient = SSL_new(ctxForClient);
+	if (SSLSocketForClient == NULL)
+	{
+		std::cout << "[Test.lim] Client: Error SSL_new" << std::endl;
+		iResult = closesocket(Client);
+		Client = INVALID_SOCKET;
+		SSL_CTX_free(ctxForClient);
+		if (iResult == SOCKET_ERROR)
+			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+		return false;
+	}
+	std::cout << "[Test.lim] Client: Success SSL_new" << std::endl;
+
+	// SSL 소켓에 일반 소켓 연결
+	int fd = SSL_set_fd(SSLSocketForClient, Client);
+	if (fd != 1)
+	{
+		std::cout << "[Test.lim] Client: Error SSL_set_fd" << std::endl;
+		closesocket(Client);
+		Client = INVALID_SOCKET;
+		SSL_free(SSLSocketForClient);
+		SSL_CTX_free(ctxForClient);
+		return NULL;
+	}
+	SSLClient = SSL_get_fd(SSLSocketForClient);
+
+	// 인증서 검증
+	//SSL_CTX_set_verify(ctxForClient, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+	//std::cout << "[Test.lim] Client: Success SSL_CTX_set_verify" << std::endl;
+
+	// SSL 소켓을 사용하여 서버와 다시 연결
+	if (SSL_connect(SSLSocketForClient) != 1)
+	{
+		// SSL 소켓 초기화 실패 처리
+		std::cout << "[Test.lim] Client: Error SSL_connect" << std::endl;
+		closesocket(Client);
+		Client = INVALID_SOCKET;
+		SSL_free(SSLSocketForClient);
+		SSL_CTX_free(ctxForClient);
+		return false;
+	}
+	std::cout << "[Test.lim] Client: Success SSL_connect" << std::endl;
+
 	return true;
 }
 
@@ -188,11 +263,14 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 	hEndVideoClientEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 	// 소켓과 이벤트 핸들을 연결 (FD_READ와 FD_CLOSE 이벤트 감시하도록 지정)
-	if (WSAEventSelect(Client, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+	if (WSAEventSelect(SSLClient, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 	{
 		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
+		SSLClient = INVALID_SOCKET;
+		SSL_free(SSLSocketForClient);
+		SSL_CTX_free(ctxForClient);
 		if (iResult == SOCKET_ERROR)
 			std::cout << "closesocket function failed with error : " << WSAGetLastError() << std::endl;
 		return 4;
@@ -216,7 +294,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 		{
 			WSANETWORKEVENTS NetworkEvents;
 			// 클라이언트 소켓의 네트워크 이벤트를 가져옴
-			if (SOCKET_ERROR == WSAEnumNetworkEvents(Client, hClientEvent, &NetworkEvents))
+			if (SOCKET_ERROR == WSAEnumNetworkEvents(SSLClient, hClientEvent, &NetworkEvents))
 			{
 				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << "dwEvent " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
 				NetworkEvents.lNetworkEvents = 0;
@@ -233,7 +311,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 					else
 					{
 						int iResult;
-						iResult = ReadDataTcpNoBlock(Client, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
+						iResult = SSLReadDataTcpNoBlock(SSLSocketForClient, (unsigned char*)InputBufferWithOffset, InputBytesNeeded);
 						if (iResult != SOCKET_ERROR)
 						{
 							if (iResult == 0)
@@ -280,7 +358,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 								}
 							}
 						}
-						else std::cout << "ReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						else std::cout << "SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
 					}
 				}
 				// 데이터를 전송할 수 있는 상태임을 의미
@@ -321,18 +399,18 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 				std::cout << "Camera Frame Empty" << std::endl;
 			}
 			numbytes = htonl((unsigned long)sendbuff.size());
-			if (WriteDataTcp(Client, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
+			if (SSLWriteDataTcp(SSLSocketForClient, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
 			{
-				if (WriteDataTcp(Client, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
+				if (SSLWriteDataTcp(SSLSocketForClient, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
 				{
-					std::cout << "WriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
+					std::cout << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
 					PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
 					break;
 				}
 			}
 			else
 			{
-				std::cout << "WriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
+				std::cout << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
 				PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
 				break;
 			}
