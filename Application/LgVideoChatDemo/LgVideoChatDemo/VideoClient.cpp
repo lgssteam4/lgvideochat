@@ -70,7 +70,7 @@ static void VideoClientCleanup(void)
 
 bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 {
-	std::cout << "[Test.lim] Client: ConnectToserver" << std::endl;
+	std::cout << "[B1C2V3] Client: Start ConnectToserver" << std::endl;
 
 	int iResult;
 	struct addrinfo   hints;
@@ -107,8 +107,7 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 		std::cout << "video client socket() failed with error " << WSAGetLastError() << std::endl;
 		return false;
 	}
-
-	std::cout << "[Test.lim] Client: Success socket" << std::endl;
+	std::cout << "[B1C2V3] Client: Success socket" << std::endl;
 
 	// Connect to server.
 	iResult = connect(Client, result->ai_addr, (int)result->ai_addrlen);
@@ -121,30 +120,30 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
 		return false;
 	}
-	std::cout << "[Test.lim] Client: Success connect" << std::endl;
+	std::cout << "[B1C2V3] Client: Success connect" << std::endl;
 
 	// SSL 초기화
 	initializeSSL();
-	std::cout << "[Test.lim] Client: Success initializeSSL" << std::endl;
+	std::cout << "[B1C2V3] Client: Success initializeSSL" << std::endl;
 
 	// SSL 컨텍스트 생성 및 초기화
 	ctxForClient = createSSLContextForClient();
 	if (ctxForClient == NULL)
 	{
-		std::cout << "[Test.lim] Client: Error createSSLContextForClient" << std::endl;
+		std::cout << "[B1C2V3] Client: Error createSSLContextForClient" << std::endl;
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		if (iResult == SOCKET_ERROR)
 			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
 		return false;
 	}
-	std::cout << "[Test.lim] Client: Success createSSLContextForClient" << std::endl;
+	std::cout << "[B1C2V3] Client: Success createSSLContextForClient" << std::endl;
 
 	// SSL 소켓 생성
 	SSLSocketForClient = SSL_new(ctxForClient);
 	if (SSLSocketForClient == NULL)
 	{
-		std::cout << "[Test.lim] Client: Error SSL_new" << std::endl;
+		std::cout << "[B1C2V3] Client: Error SSL_new" << std::endl;
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSL_CTX_free(ctxForClient);
@@ -152,37 +151,38 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
 		return false;
 	}
-	std::cout << "[Test.lim] Client: Success SSL_new" << std::endl;
+	std::cout << "[B1C2V3] Client: Success SSL_new" << std::endl;
 
 	// SSL 소켓에 일반 소켓 연결
 	int fd = SSL_set_fd(SSLSocketForClient, Client);
 	if (fd != 1)
 	{
-		std::cout << "[Test.lim] Client: Error SSL_set_fd" << std::endl;
-		closesocket(Client);
-		Client = INVALID_SOCKET;
-		SSL_free(SSLSocketForClient);
-		SSL_CTX_free(ctxForClient);
-		return NULL;
-	}
-	SSLClient = SSL_get_fd(SSLSocketForClient);
-
-	// 인증서 검증
-	//SSL_CTX_set_verify(ctxForClient, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-	//std::cout << "[Test.lim] Client: Success SSL_CTX_set_verify" << std::endl;
-
-	// SSL 소켓을 사용하여 서버와 다시 연결
-	if (SSL_connect(SSLSocketForClient) != 1)
-	{
-		// SSL 소켓 초기화 실패 처리
-		std::cout << "[Test.lim] Client: Error SSL_connect" << std::endl;
+		std::cout << "[B1C2V3] Client: Error SSL_set_fd" << std::endl;
 		closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSL_free(SSLSocketForClient);
 		SSL_CTX_free(ctxForClient);
 		return false;
 	}
-	std::cout << "[Test.lim] Client: Success SSL_connect" << std::endl;
+	std::cout << "[B1C2V3] Client: Success SSL_set_fd" << std::endl;
+	SSLClient = SSL_get_fd(SSLSocketForClient);
+
+	// 인증서 검증
+	//SSL_CTX_set_verify(ctxForClient, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+	//std::cout << "[B1C2V3] Client: Success SSL_CTX_set_verify" << std::endl;
+
+	// SSL 소켓을 사용하여 서버와 다시 연결
+	if (SSL_connect(SSLSocketForClient) != 1)
+	{
+		std::cout << "[B1C2V3] Client: Error SSL_connect" << std::endl;
+		closesocket(Client);
+		Client = INVALID_SOCKET;
+		SSL_free(SSLSocketForClient);
+		SSL_CTX_free(ctxForClient);
+		return false;
+	}
+	std::cout << "[B1C2V3] Client: Success SSL_connect" << std::endl;
+	std::cout << "[B1C2V3] Client: End ConnectToserver" << std::endl;
 
 	return true;
 }
@@ -217,6 +217,8 @@ bool IsVideoClientRunning(void)
 
 static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 {
+	std::cout << "[B1C2V3] Client: Start ThreadVideoClient" << std::endl;
+
 	HANDLE ghEvents[3];
 	int NumEvents;
 	int iResult;
@@ -275,6 +277,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 			std::cout << "closesocket function failed with error : " << WSAGetLastError() << std::endl;
 		return 4;
 	}
+
 	ghEvents[0] = hEndVideoClientEvent;
 	ghEvents[1] = hClientEvent;
 	ghEvents[2] = hTimer;
@@ -358,7 +361,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 								}
 							}
 						}
-						else std::cout << "SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						//else std::cout << "[B1C2V3] Client: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
 					}
 				}
 				// 데이터를 전송할 수 있는 상태임을 의미

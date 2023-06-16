@@ -114,6 +114,8 @@ static void VideoServerCleanup(void)
 
 static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 {
+	std::cout << "[B1C2V3] Server: Start ThreadVideoServer" << std::endl;
+
 	SOCKADDR_IN InternetAddr;
 	HANDLE ghEvents[4];
 	DWORD dwEvent;
@@ -218,33 +220,33 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							// SSL 초기화
 							initializeSSL();
-							std::cout << "[Test.lim] Server: Success initializeSSL" << std::endl;
+							std::cout << "[B1C2V3] Server: Success initializeSSL" << std::endl;
 
 							// SSL 컨텍스트 생성 및 초기화
 							ctxForServer = createSSLContextForServer();
 							if (ctxForServer == NULL)
 							{
-								std::cout << "[Test.lim] Server: Error createSSLContextForServer" << std::endl;
+								std::cout << "[B1C2V3] Server: Error createSSLContextForServer" << std::endl;
 								break;
 							}
-							std::cout << "[Test.lim] Server: Success createSSLContextForServer" << std::endl;
+							std::cout << "[B1C2V3] Server: Success createSSLContextForServer" << std::endl;
 
 							// Accept a new connection, and add it to the socket and event lists
 							Accept = accept(Listen, (struct sockaddr*)&sa, &sa_len);
-							std::cout << "[Test.lim] Server: Success accept" << std::endl;
+							std::cout << "[B1C2V3] Server: Success accept" << std::endl;
 
 							// SSL 소켓 생성
 							SSLSocketForServer = createSSLSocket(ctxForServer, Accept);
 							if (SSLSocketForServer == NULL)
 							{
-								std::cout << "[Test.lim] Error: createSSLSocket" << std::endl;
+								std::cout << "[B1C2V3] Error: createSSLSocket" << std::endl;
 								SSL_CTX_free(ctxForServer);
 								break;
 							}
 							SSLAccept = SSL_get_fd(SSLSocketForServer);
 							if (SSLAccept == INVALID_SOCKET)
 							{
-								std::cout << "[Test.lim] Error: SSL_get_fd" << std::endl;
+								std::cout << "[B1C2V3] Error: SSL_get_fd" << std::endl;
 								SSL_free(SSLSocketForServer);
 								SSL_CTX_free(ctxForServer);
 								break;
@@ -311,10 +313,8 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								closesocket(Temp);
 								std::cout << "Refused-Already Connected" << std::endl;
 							}
-
 						}
 					}
-
 				}
 				// FD_CLOSE 이벤트가 발생한 경우, 해당 소켓을 닫고 정리
 				if (NetworkEvents.lNetworkEvents & FD_CLOSE)
@@ -378,7 +378,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							}
 							else
 							{
-								std::cout << "SSLReadDataTcpNoBlock failed:" << WSAGetLastError() << std::endl;
+								//std::cout << "[B1C2V3] Server: SSLReadDataTcpNoBlock failed:" << WSAGetLastError() << std::endl;
 							}
 						}
 					}
@@ -428,10 +428,9 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 										DispayImage(ImageIn);
 									}
 								}
-
 							}
 						}
-						else std::cout << "SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						//else std::cout << "[B1C2V3] Server: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
 					}
 				}
 				// FD_WRITE 이벤트가 발생한 경우, 데이터 송신할 수 있는 상태임을 의미
