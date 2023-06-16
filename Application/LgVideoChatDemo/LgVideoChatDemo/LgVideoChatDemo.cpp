@@ -21,7 +21,6 @@
 #include "Join.h"
 #include "Update.h"
 
-
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
 #pragma comment(lib,"..\\..\\opencv\\build\\x64\\vc16\\lib\\opencv_world470d.lib")
@@ -637,6 +636,10 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 std::cout << "Video Client Started.." << std::endl;
                 VoipVoiceStart(RemoteAddress, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
                 std::cout << "Voip Voice Started.." << std::endl;
+
+                SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                std::cout << "Enable window alway on top." << std::endl;
+
                 return 1;
             }
             else
@@ -662,6 +665,9 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         StopVideoClient();
         CloseCamera();
         std::cout << "Video Client Stopped" << std::endl;
+
+        SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        std::cout << "Disable window alway on top." << std::endl;
     }
     return 1;
 }
@@ -744,6 +750,7 @@ static bool OnlyOneInstance(void)
     }
     return true;
 }
+
 //-----------------------------------------------------------------
 // END of File
 //-----------------------------------------------------------------
