@@ -49,6 +49,7 @@
 #define IDC_UPDATE_E_OTP                2034
 #define IDC_UPDATE_BUTTON_OTP           2035
 #define IDC_UPDATE_T_OTP_TIME           2036
+#define IDC_UPDATE_BUTTON_DUPLICATE     2037
 
 #ifndef IDC_STATIC
 #define IDC_STATIC                      -1

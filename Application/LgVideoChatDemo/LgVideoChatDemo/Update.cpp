@@ -2,6 +2,57 @@
 
 std::string currentPassword = "test1234";
 
+// Function to check if the given email is valid
+bool isValidEmail(const std::string& email) {
+    // Regular expression pattern for email validation
+    const std::regex pattern(R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
+    return std::regex_match(email, pattern);
+}
+
+// Function to check if the given email is a duplicate
+bool isDuplicateEmail(const std::string& email) {
+    unsigned int rc = 0;
+    rc = backendCheckEmail(email);
+    if (rc == 403) {
+        return true;
+    }
+    return false;
+}
+
+// Function to perform email validation and duplicate check
+bool checkEmail(HWND hDlg) {
+    HWND hEmailEdit = GetDlgItem(hDlg, IDC_UPDATE_E_NEW_EMAIL);
+    int newEmailLength = GetWindowTextLength(hEmailEdit);
+    std::string email;
+
+    if (newEmailLength == 0) {
+        std::cout << "Email cannot be empty." << std::endl;
+        MessageBox(hDlg, TEXT("Email cannot be empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    else {
+        std::vector<char> buffer(newEmailLength + 1);
+        GetWindowTextA(hEmailEdit, buffer.data(), newEmailLength + 1);
+        email = buffer.data();
+        std::cout << "Email - " << email << std::endl;
+    }
+
+    if (!isValidEmail(email)) {
+        std::cout << "Invalid email format." << std::endl;
+        MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    if (isDuplicateEmail(email)) {
+        std::cout << "Duplicate email found." << std::endl;
+        MessageBox(hDlg, TEXT("Duplicate email found"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    return true;
+}
+
+
 // Function to perform update logic
 bool PerformUpdate(HWND hDlg)
 {
@@ -86,6 +137,13 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             // 취소 버튼을 누르면 다이얼로그를 닫습니다.
             EndDialog(hDlg, IDCANCEL);
+            return TRUE;
+        }
+        else if (LOWORD(wParam) == IDC_UPDATE_BUTTON_DUPLICATE)
+        {
+            // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
+            checkEmail(hDlg);
+
             return TRUE;
         }
         break;

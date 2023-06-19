@@ -15,6 +15,7 @@ const std::string SERVER = "https://20.119.70.194";
 
 class client
 {
+
 public:
     client(boost::asio::io_service& io_service,
         boost::asio::ssl::context& ssl_context,
@@ -100,8 +101,12 @@ public:
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::iterator));
     }
+    int get_status_code() const {
+        return status_code_;
+    }
 
 private:
+    unsigned int status_code_; // Ãß°¡
 
     void handleResolve(const boost::system::error_code& err,
         tcp::resolver::iterator endpoint_iterator)
@@ -210,6 +215,7 @@ private:
             response_stream >> http_version;
             unsigned int status_code;
             response_stream >> status_code;
+            this->status_code_ = status_code;
             std::string status_message;
             std::getline(response_stream, status_message);
             if (!response_stream || http_version.substr(0, 5) != "HTTP/")
@@ -289,7 +295,8 @@ private:
     boost::asio::streambuf response_;
 };
 
-int request(std::string request_method, std::string uri, std::string session_token)
+
+int request(std::string request_method, std::string uri, std::string session_token, unsigned int* status_code)
 {
     try
     {
@@ -309,6 +316,8 @@ int request(std::string request_method, std::string uri, std::string session_tok
 
         client c(io_context, ssl_context, request_method, url, session_token);
         io_context.run();
+        *status_code = c.get_status_code();
+        std::cout << "status_code : " << *status_code << "\n";
     }
     catch (std::exception& e)
     {
@@ -319,7 +328,7 @@ int request(std::string request_method, std::string uri, std::string session_tok
     return 0;
 }
 
-int request(std::string request_method, std::string uri, std::string data, std::string session_token)
+int request(std::string request_method, std::string uri, std::string data, std::string session_token, unsigned int* status_code)
 {
     try
     {
@@ -339,6 +348,8 @@ int request(std::string request_method, std::string uri, std::string data, std::
 
         client c(io_context, ssl_context, request_method, url, data, session_token);
         io_context.run();
+        *status_code = c.get_status_code();
+        std::cout << "status_code : " << *status_code << "\n";
     }
     catch (std::exception& e)
     {
@@ -347,4 +358,62 @@ int request(std::string request_method, std::string uri, std::string data, std::
     }
 
     return 0;
+}
+
+std::map<std::string, std::string> parseKeyValuePairs(const std::string& input) {
+    std::map<std::string, std::string> keyValuePairs;
+    size_t startPos = 0;
+    size_t endPos = input.find('&');
+
+    while (endPos != std::string::npos) {
+        std::string pair = input.substr(startPos, endPos - startPos);
+        size_t equalPos = pair.find('=');
+
+        if (equalPos != std::string::npos) {
+            std::string key = pair.substr(0, equalPos);
+            std::string value = pair.substr(equalPos + 1);
+            keyValuePairs[key] = value;
+        }
+
+        startPos = endPos + 1;
+        endPos = input.find('&', startPos);
+    }
+
+    // Process the last key-value pair after the last '&'
+    std::string lastPair = input.substr(startPos);
+    size_t equalPos = lastPair.find('=');
+
+    if (equalPos != std::string::npos) {
+        std::string key = lastPair.substr(0, equalPos);
+        std::string value = lastPair.substr(equalPos + 1);
+        keyValuePairs[key] = value;
+    }
+
+    return keyValuePairs;
+}
+
+unsigned int backendCheckEmail(const std::string& email) {
+    int rc = 0;
+    unsigned int statusCode = 0;
+
+    /*
+    // Send GET request
+    rc = request("GET", "/", "", statusCode);
+    std::cout << "GET : statusCode - " << statusCode << std::endl;
+
+    // Send POST request with POST data
+
+    std::string data = "email=viet.truong@lge.com&password=TestP4ss!@#";
+    rc = request("POST", "/api/auth/login/", data, "");
+
+    data = "login_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGU2MmIzYjUtMGFjZi0xMWVlLTlkYmUtNjA0NWJkZGM5NGY3IiwiaWF0IjoxNjg2Nzk5MTkwLCJleHAiOjE2ODY3OTk3OTB9.Cun_W_0NzeFs7h6Y3NTj_Ow8Hsnlm2bMTFpMOwZY7aM&otp=205006";
+    rc = request("POST", "/api/auth/verify-otp/", data, "");
+    */
+    //viet.truong@lge.com
+    std::string data = "email=" + email;
+    rc = request("POST", "/api/check-email/", data, "", &statusCode);
+    std::cout << "POST : statusCode - " << statusCode << std::endl;
+    // 3rd param is session token
+
+    return statusCode;
 }
