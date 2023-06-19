@@ -1,3 +1,5 @@
+#include "BoostLog.h"
+
 #include "VoipNetwork.h"
 #include "FixedSizeQueue.h"
 #include <iostream>
@@ -17,7 +19,7 @@ int SetUpUdpVoipNetwork(char* hostname, unsigned short localport, unsigned short
 // Initalize to default value to be safe.
 VoipSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 if (VoipSocket == INVALID_SOCKET) {
-    std::cout << "socket failed with error " << WSAGetLastError() << '\n';
+    BOOST_LOG_TRIVIAL(error) << "socket failed with error " << WSAGetLastError();
     return 1;
 }
 
@@ -26,14 +28,14 @@ LocalAddr.sin_addr.s_addr = INADDR_ANY;
 LocalAddr.sin_port = htons(localport);
 if (bind(VoipSocket, (struct sockaddr*)&LocalAddr, sizeof(LocalAddr)) == SOCKET_ERROR)
 {
-    std::cout << "Bind failed with error code : " << WSAGetLastError() << '\n';
+    BOOST_LOG_TRIVIAL(error) << "Bind failed with error code : " << WSAGetLastError();
     return 1;
 }
 
 RemoteAddr.sin_family = AF_INET;
 RemoteAddr.sin_port = htons(remoteport);
 if (inet_pton(AF_INET, hostname, &RemoteAddr.sin_addr) <= 0) {
-    std::cout << "Invalid address / Address not supported" << '\n';
+    BOOST_LOG_TRIVIAL(error) << "Invalid address / Address not supported";
     return 1;
 }
 return 0;
@@ -52,7 +54,7 @@ int SendUdpVoipData(const char* buf, int len)
     int res;
     if ((res = sendto(VoipSocket, buf, len, 0, (struct sockaddr*)&RemoteAddr, sizeof(RemoteAddr))) == SOCKET_ERROR)
     {
-        std::cout << "Voip sendto() failed with error code : " << WSAGetLastError() << '\n';
+        BOOST_LOG_TRIVIAL(error) << "Voip sendto() failed with error code : " << WSAGetLastError();
         return(SOCKET_ERROR);
     }
      return(res);
@@ -62,7 +64,7 @@ int RecvUdpVoipData(char* buf, int len, sockaddr* from, int* fromlen)
     int res;
     if ((res = recvfrom(VoipSocket, buf, len, 0, from, fromlen)) == SOCKET_ERROR)
     {
-        std::cout << "Voip recvfrom() failed with error code : " << WSAGetLastError() << '\n';
+        BOOST_LOG_TRIVIAL(error) << "Voip recvfrom() failed with error code : " << WSAGetLastError();
         return(SOCKET_ERROR);
     }
     return(res);
@@ -87,7 +89,7 @@ int WaitForVoipData(void)
     }
     else 
     {
-        std::cout << "here 3\n";
+        BOOST_LOG_TRIVIAL(info) << "here 3";
         return -1;
     }
 }

@@ -1,4 +1,6 @@
-﻿#include <winsock2.h>
+﻿#include "BoostLog.h"
+
+#include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <stdio.h>
@@ -38,7 +40,7 @@ static void VideoClientSetExitEvent(void)
 }
 static void VideoClientCleanup(void)
 {
-	std::cout << "VideoClientCleanup" << std::endl;
+	BOOST_LOG_TRIVIAL(info) << "VideoClientCleanup";
 
 	if (hClientEvent != INVALID_HANDLE_VALUE)
 	{
@@ -70,7 +72,7 @@ static void VideoClientCleanup(void)
 
 bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 {
-	std::cout << "[B1C2V3] Client: Start ConnectToserver" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Start ConnectToserver";
 
 	int iResult;
 	struct addrinfo   hints;
@@ -88,13 +90,13 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	iResult = getaddrinfo(remotehostname, remoteportno, &hints, &result);
 	if (iResult != 0)
 	{
-		std::cout << "getaddrinfo: Failed" << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "getaddrinfo: Failed";
 		return false;
 	}
 
 	if (result == NULL)
 	{
-		std::cout << "getaddrinfo: Failed" << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "getaddrinfo: Failed";
 		return false;
 	}
 
@@ -104,85 +106,85 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	if ((Client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
 	{
 		freeaddrinfo(result);
-		std::cout << "video client socket() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "video client socket() failed with error " << WSAGetLastError();
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success socket" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success socket";
 
 	// Connect to server.
 	iResult = connect(Client, result->ai_addr, (int)result->ai_addrlen);
 	freeaddrinfo(result);
 	if (iResult == SOCKET_ERROR) {
-		std::cout << "connect function failed with error : " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "connect function failed with error : " << WSAGetLastError();
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		if (iResult == SOCKET_ERROR)
-			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+			BOOST_LOG_TRIVIAL(error) << "closesocket function failed with error :" << WSAGetLastError();
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success connect" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success connect";
 
 	// SSL 초기화
 	initializeSSL();
-	std::cout << "[B1C2V3] Client: Success initializeSSL" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success initializeSSL";
 
 	// SSL 컨텍스트 생성 및 초기화
 	ctxForClient = createSSLContextForClient();
 	if (ctxForClient == NULL)
 	{
-		std::cout << "[B1C2V3] Client: Error createSSLContextForClient" << std::endl;
+		BOOST_LOG_TRIVIAL(debug) << "Client: Error createSSLContextForClient";
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		if (iResult == SOCKET_ERROR)
-			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+			BOOST_LOG_TRIVIAL(error) << "closesocket function failed with error :" << WSAGetLastError();
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success createSSLContextForClient" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success createSSLContextForClient";
 
 	// SSL 소켓 생성
 	SSLSocketForClient = SSL_new(ctxForClient);
 	if (SSLSocketForClient == NULL)
 	{
-		std::cout << "[B1C2V3] Client: Error SSL_new" << std::endl;
+		BOOST_LOG_TRIVIAL(debug) << "Client: Error SSL_new";
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSL_CTX_free(ctxForClient);
 		if (iResult == SOCKET_ERROR)
-			std::cout << "closesocket function failed with error :" << WSAGetLastError() << std::endl;
+			BOOST_LOG_TRIVIAL(error) << "closesocket function failed with error :" << WSAGetLastError();
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success SSL_new" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_new";
 
 	// SSL 소켓에 일반 소켓 연결
 	int fd = SSL_set_fd(SSLSocketForClient, Client);
 	if (fd != 1)
 	{
-		std::cout << "[B1C2V3] Client: Error SSL_set_fd" << std::endl;
+		BOOST_LOG_TRIVIAL(debug) << "Client: Error SSL_set_fd";
 		closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSL_free(SSLSocketForClient);
 		SSL_CTX_free(ctxForClient);
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success SSL_set_fd" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_set_fd";
 	SSLClient = SSL_get_fd(SSLSocketForClient);
 
 	// 인증서 검증
 	//SSL_CTX_set_verify(ctxForClient, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-	//std::cout << "[B1C2V3] Client: Success SSL_CTX_set_verify" << std::endl;
+	//BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_CTX_set_verify";
 
 	// SSL 소켓을 사용하여 서버와 다시 연결
 	if (SSL_connect(SSLSocketForClient) != 1)
 	{
-		std::cout << "[B1C2V3] Client: Error SSL_connect" << std::endl;
+		BOOST_LOG_TRIVIAL(debug) << "Client: Error SSL_connect";
 		closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSL_free(SSLSocketForClient);
 		SSL_CTX_free(ctxForClient);
 		return false;
 	}
-	std::cout << "[B1C2V3] Client: Success SSL_connect" << std::endl;
-	std::cout << "[B1C2V3] Client: End ConnectToserver" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_connect";
+	BOOST_LOG_TRIVIAL(debug) << "Client: End ConnectToserver";
 
 	return true;
 }
@@ -217,7 +219,7 @@ bool IsVideoClientRunning(void)
 
 static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 {
-	std::cout << "[B1C2V3] Client: Start ThreadVideoClient" << std::endl;
+	BOOST_LOG_TRIVIAL(debug) << "Client: Start ThreadVideoClient";
 
 	HANDLE ghEvents[3];
 	int NumEvents;
@@ -236,7 +238,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 
 	if (InputBuffer == NULL)
 	{
-		std::cout << "InputBuffer Realloc failed" << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "InputBuffer Realloc failed";
 		return 1;
 	}
 
@@ -247,14 +249,14 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 
 	if (NULL == hTimer)
 	{
-		std::cout << "CreateWaitableTimer failed " << GetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "CreateWaitableTimer failed " << GetLastError();
 		return 2;
 	}
 
 	// 타이머 설정
 	if (!SetWaitableTimer(hTimer, &liDueTime, VIDEO_FRAME_DELAY, NULL, NULL, 0))
 	{
-		std::cout << "SetWaitableTimer failed  " << GetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "SetWaitableTimer failed  " << GetLastError();
 		return 3;
 	}
 
@@ -267,14 +269,14 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 	// 소켓과 이벤트 핸들을 연결 (FD_READ와 FD_CLOSE 이벤트 감시하도록 지정)
 	if (WSAEventSelect(SSLClient, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 	{
-		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "WSAEventSelect() failed with error " << WSAGetLastError();
 		iResult = closesocket(Client);
 		Client = INVALID_SOCKET;
 		SSLClient = INVALID_SOCKET;
 		SSL_free(SSLSocketForClient);
 		SSL_CTX_free(ctxForClient);
 		if (iResult == SOCKET_ERROR)
-			std::cout << "closesocket function failed with error : " << WSAGetLastError() << std::endl;
+			BOOST_LOG_TRIVIAL(error) << "closesocket function failed with error : " << WSAGetLastError();
 		return 4;
 	}
 
@@ -299,7 +301,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 			// 클라이언트 소켓의 네트워크 이벤트를 가져옴
 			if (SOCKET_ERROR == WSAEnumNetworkEvents(SSLClient, hClientEvent, &NetworkEvents))
 			{
-				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << "dwEvent " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "WSAEnumNetworkEvent: " << WSAGetLastError() << "dwEvent " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents;
 				NetworkEvents.lNetworkEvents = 0;
 			}
 			else
@@ -309,7 +311,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_READ_BIT] != 0)
 					{
-						std::cout << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT];
 					}
 					else
 					{
@@ -323,7 +325,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 								InputBytesNeeded = sizeof(unsigned int);
 								InputBufferWithOffset = InputBuffer;
 								PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
-								std::cout << "Connection closed on Recv" << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Connection closed on Recv";
 								break;
 							}
 							else
@@ -345,7 +347,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 											InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
 											if (InputBuffer == NULL)
 											{
-												std::cout << "std::realloc failed " << std::endl;
+												BOOST_LOG_TRIVIAL(error) << "std::realloc failed ";
 											}
 										}
 										InputBufferWithOffset = InputBuffer;;
@@ -361,7 +363,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 								}
 							}
 						}
-						//else std::cout << "[B1C2V3] Client: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						else BOOST_LOG_TRIVIAL(debug) << "Client: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError();
 					}
 				}
 				// 데이터를 전송할 수 있는 상태임을 의미
@@ -369,11 +371,11 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_WRITE_BIT] != 0)
 					{
-						std::cout << "FD_WRITE failed with error " << NetworkEvents.iErrorCode[FD_WRITE_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_WRITE failed with error " << NetworkEvents.iErrorCode[FD_WRITE_BIT];
 					}
 					else
 					{
-						std::cout << "FD_WRITE" << std::endl;
+						BOOST_LOG_TRIVIAL(info) << "FD_WRITE";
 					}
 				}
 				// 클라이언트 소켓 닫힘을 의미
@@ -381,11 +383,11 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
 					{
-						std::cout << "FD_CLOSE failed with error " << NetworkEvents.iErrorCode[FD_CLOSE_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_CLOSE failed with error " << NetworkEvents.iErrorCode[FD_CLOSE_BIT];
 					}
 					else
 					{
-						std::cout << "FD_CLOSE" << std::endl;
+						BOOST_LOG_TRIVIAL(info) << "FD_CLOSE";
 						PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
 						break;
 					}
@@ -399,21 +401,21 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 
 			if (!GetCameraFrame(sendbuff))
 			{
-				std::cout << "Camera Frame Empty" << std::endl;
+				BOOST_LOG_TRIVIAL(info) << "Camera Frame Empty";
 			}
 			numbytes = htonl((unsigned long)sendbuff.size());
 			if (SSLWriteDataTcp(SSLSocketForClient, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
 			{
 				if (SSLWriteDataTcp(SSLSocketForClient, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
 				{
-					std::cout << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
+					BOOST_LOG_TRIVIAL(error) << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError();
 					PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
 					break;
 				}
 			}
 			else
 			{
-				std::cout << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError();
 				PostMessage(hWndMain, WM_CLIENT_LOST, 0, 0);
 				break;
 			}
@@ -425,7 +427,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 		InputBuffer = nullptr;
 	}
 	VideoClientCleanup();	// 연결이 종료된 서버와 관련된 자원을 정리
-	std::cout << "Video Client Exiting" << std::endl;
+	BOOST_LOG_TRIVIAL(info) << "Video Client Exiting";
 	return 0;
 }
 //-----------------------------------------------------------------

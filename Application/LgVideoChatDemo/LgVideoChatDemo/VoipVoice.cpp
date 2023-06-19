@@ -1,4 +1,7 @@
+#include "BoostLog.h"
+
 #include "VoipNetwork.h"
+
 #include <windows.h>
 #include <dmo.h>
 #include <Mmsystem.h>
@@ -115,7 +118,7 @@ bool VoipVoiceStart(char* hostname, unsigned short localport, unsigned short rem
     if (!InitializeCriticalSectionAndSpinCount(&CriticalSection,
         0x00000400))
     {
-        std::cout << "InitializeCriticalSectionAndSpinCount Failure" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "InitializeCriticalSectionAndSpinCount Failure";
         return false;
     }
     SetUpUdpVoipNetwork(hostname,localport,remoteport);
@@ -125,7 +128,7 @@ bool VoipVoiceStart(char* hostname, unsigned short localport, unsigned short rem
     encoder = opus_encoder_create(SAMPLE_RATE, CHANNELS, APPLICATION, &err);
     if (err < 0)
     {
-        std::cout << "failed to create an encoder: " << opus_strerror(err) << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "failed to create an encoder: " << opus_strerror(err);
         g_lock.unlock();
         return false;
     }
@@ -136,7 +139,7 @@ bool VoipVoiceStart(char* hostname, unsigned short localport, unsigned short rem
     err = opus_encoder_ctl(encoder, OPUS_SET_BITRATE(BITRATE));
     if (err < 0)
     {
-        std::cout << "failed to set bitrate: " << opus_strerror(err) << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "failed to set bitrate: " << opus_strerror(err);
         g_lock.unlock();
         return false;
     }
@@ -145,7 +148,7 @@ bool VoipVoiceStart(char* hostname, unsigned short localport, unsigned short rem
     decoder = opus_decoder_create(SAMPLE_RATE, CHANNELS, &err);
     if (err < 0)
     {
-        std::cout << "failed to create decoder: " << opus_strerror(err) << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "failed to create decoder: " << opus_strerror(err);
         g_lock.unlock();
         return false;
     }
@@ -153,7 +156,7 @@ bool VoipVoiceStart(char* hostname, unsigned short localport, unsigned short rem
     hThreadRecvUdp = CreateThread(NULL, 0, UdpRecievingWaitingThread, NULL, 0, &ThreadRecvUdpID);
     hThreadRenderToSpkr = CreateThread(NULL, 0, RenderToSpkrThread, NULL, 0, &ThreadRenderToSpkrID);
     hThreadCaptureMic = CreateThread(NULL, 0, CaptureMicThread, &VoipAttrRef, 0, &ThreadCaptureMicID);
-    std::cout << "Voip Running" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Voip Running";
     VoipRunning = true;
     g_lock.unlock();
     return true;
@@ -183,7 +186,7 @@ bool VoipVoiceStop(void)
     opus_encoder_destroy(encoder);
     opus_decoder_destroy(decoder);
     VoipRunning = false;
-    std::cout << "Voip Stopped" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Voip Stopped";
     g_lock.unlock();
     return true;
 }
@@ -214,7 +217,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
             (void**)&pDeviceEnumerator);
         if (FAILED(hr))
         {
-            std::cout << "hr=0x"<< std::hex<<hr << std::endl;
+            BOOST_LOG_TRIVIAL(error) << "hr=0x"<< std::hex<<hr;
             throw std::runtime_error("CoCreateInstance error");
         }
 
@@ -223,7 +226,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
             eConsole,
             &pDevice);
         if (FAILED(hr)) throw std::runtime_error("IMMDeviceEnumerator.GetDefaultAudioEndpoint error");
-        std::cout << "IMMDeviceEnumerator.GetDefaultAudioEndpoint()->OK" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "IMMDeviceEnumerator.GetDefaultAudioEndpoint()->OK";
 
         hr = pDevice->Activate(
             __uuidof(IAudioClient),
@@ -231,7 +234,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
             nullptr,
             (void**)&pAudioClient);
         if (FAILED(hr)) throw std::runtime_error("IMMDevice.Activate error");
-        std::cout << "IMMDevice.Activate()->OK" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "IMMDevice.Activate()->OK";
 
 
         REFERENCE_TIME MinimumDevicePeriod = 10000000ULL / 2;
@@ -239,7 +242,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
         // hr = pAudioClient->GetDevicePeriod(nullptr, &MinimumDevicePeriod);
         // if (FAILED(hr)) throw std::runtime_error("IAudioClient.GetDevicePeriod error");
 
-        std::cout << "minimum device period=" << MinimumDevicePeriod * 100 << "[nano seconds]" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "minimum device period=" << MinimumDevicePeriod * 100 << "[nano seconds]";
 
         WAVEFORMATEX wave_format = {};
         wave_format.wFormatTag = WAVE_FORMAT_PCM;
@@ -259,10 +262,10 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
             nullptr);
         if (FAILED(hr))
         {
-            std::cout << "hr=0x" << std::hex << hr << std::endl;
+            BOOST_LOG_TRIVIAL(error) << "hr=0x" << std::hex << hr;
             throw std::runtime_error("IAudioClient.Initialize error");
         }
-        std::cout << "IAudioClient.Initialize()->OK" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "IAudioClient.Initialize()->OK";
 
         // event
         hEvent = CreateEvent(nullptr, false, false, nullptr);
@@ -274,7 +277,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
         UINT32 NumBufferFrames = 0;
         hr = pAudioClient->GetBufferSize(&NumBufferFrames);
         if (FAILED(hr)) throw std::runtime_error("IAudioClient.GetBufferSize error");
-        std::cout << "buffer frame size=" << NumBufferFrames << "[frames]" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "buffer frame size=" << NumBufferFrames << "[frames]";
 
         hr = pAudioClient->GetService(
             __uuidof(IAudioRenderClient),
@@ -291,7 +294,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
 
         hr = pAudioClient->Start();
         if (FAILED(hr)) throw std::runtime_error("IAudioClient.Start error");
-        std::cout << "IAudioClient.Start()->OK" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "IAudioClient.Start()->OK";
 
         bool playing = true;
         HANDLE ghEvents[2];
@@ -320,7 +323,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
 
                 if (numAvailableFrames < FRAMES_PER_BUFFER) continue;
 
-                //std::cout << "numAvailableFrames=" << numAvailableFrames << std::endl;
+                //BOOST_LOG_TRIVIAL(info) << "numAvailableFrames=" << numAvailableFrames;
 
 
                 EnterCriticalSection(&CriticalSection);
@@ -328,7 +331,7 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
                 if ((!VoipStarted) && (NumQueued > 2))
                 {
                     VoipStarted = true;
-                    std::cout << "VoipStarted" << std::endl;
+                    BOOST_LOG_TRIVIAL(info) << "VoipStarted";
                 }
                 if (VoipStarted)
                 {
@@ -362,11 +365,11 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
 
                 hr = pAudioRenderClient->ReleaseBuffer(read_count, dwFlags);
                 if (FAILED(hr)) throw std::runtime_error("IAudioRenderClient.ReleaseBuffer error");
-                //std::cout << "ReleaseBuffer=" << read_count << std::endl;
+                //BOOST_LOG_TRIVIAL(info) << "ReleaseBuffer=" << read_count;
 
             }
         }
-        std::cout << "playing exiting" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "playing exiting";
         do
         {
             // wait for buffer to be empty
@@ -378,19 +381,19 @@ static DWORD WINAPI RenderToSpkrThread(LPVOID ivalue)
 
             if (NumPaddingFrames == 0)
             {
-                std::cout << "current buffer padding=0[frames]" << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "current buffer padding=0[frames]";
                 break;
             }
         } while (true);
 
         hr = pAudioClient->Stop();
         if (FAILED(hr)) throw std::runtime_error("IAudioClient.Stop error");
-        std::cout << "IAudioClient.Stop()->OK" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "IAudioClient.Stop()->OK";
 
     }
     catch (std::exception& ex)
     {
-        std::cout << "error:" << ex.what() << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "error:" << ex.what();
     }
 
     if (hEvent) CloseHandle(hEvent);
@@ -473,15 +476,15 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
     pCaptureDeviceInfo = new AUDIO_DEVICE_INFO[uCapDevCount];
     hr = EnumCaptureDevice(uCapDevCount, pCaptureDeviceInfo);
     CHECK_RET(hr, "EnumCaptureDevice failed");
-    std::cout << "\nSystem has totally "<< uCapDevCount<<" capture devices" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "System has totally "<< uCapDevCount<<" capture devices";
 
     for (int i = 0; i < (int)uCapDevCount; i++)
     {
-        std::wcout << "Device " << i<<" is "<< pCaptureDeviceInfo[i].szDeviceName;
+        BOOST_LOG_TRIVIAL(info) << "Device " << i<<" is "<< pCaptureDeviceInfo[i].szDeviceName;
         if (pCaptureDeviceInfo[i].bIsMicArrayDevice)
-            std::cout << " -- Mic Array Device" << std::endl;
+            BOOST_LOG_TRIVIAL(info) << " -- Mic Array Device";
         else
-            std::cout << std::endl;
+            BOOST_LOG_TRIVIAL(info);
     }
 
     if (iMicDevIdx < -1 || iMicDevIdx >= (int)uCapDevCount)
@@ -491,15 +494,15 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
             scanf_s("%255s", pcScanBuf, 255);
             iMicDevIdx = atoi(pcScanBuf);
             if (iMicDevIdx < -1 || iMicDevIdx >= (int)uCapDevCount)                
-               std::cout << "Invalid Capture Device ID" << std::endl;
+               BOOST_LOG_TRIVIAL(info) << "Invalid Capture Device ID";
             else
                 break;
         } while (1);
     }
     if (iMicDevIdx == -1)
-        std::cout << "\nDefault device will be used for capturing" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Default device will be used for capturing";
     else
-        std::wcout << "\n" << pCaptureDeviceInfo[iMicDevIdx].szDeviceName<<" is selected for capturing"<<std::endl;
+        BOOST_LOG_TRIVIAL(info) << pCaptureDeviceInfo[iMicDevIdx].szDeviceName<<" is selected for capturing";
     SAFE_ARRAYDELETE(pCaptureDeviceInfo);
 
     hr = GetRenderDeviceNum(uRenDevCount);
@@ -509,10 +512,10 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
     hr = EnumRenderDevice(uRenDevCount, pRenderDeviceInfo);
     CHECK_RET(hr, "EnumRenderDevice failed");
 
-    std::cout << "\nSystem has totally "<< uRenDevCount<<" render devices" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "System has totally "<< uRenDevCount<<" render devices";
     for (int i = 0; i < (int)uRenDevCount; i++)
     {
-        std::wcout << "Device " <<i<< " is "<< pRenderDeviceInfo[i].szDeviceName<< std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Device " <<i<< " is "<< pRenderDeviceInfo[i].szDeviceName;
     }
 
     if (iSpkDevIdx < -1 || iSpkDevIdx >= (int)uRenDevCount)
@@ -522,16 +525,16 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
             scanf_s("%255s", pcScanBuf, 255);
             iSpkDevIdx = atoi(pcScanBuf);
             if (iSpkDevIdx < -1 || iSpkDevIdx >= (int)uRenDevCount)
-              std::cout << "Invalid Render Device ID " << std::endl;
+              BOOST_LOG_TRIVIAL(error) << "Invalid Render Device ID ";
             else
                 break;
         } while (1);
     }
     if (iSpkDevIdx == -1)
-        std::cout << "\nDefault device will be used for rendering" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Default device will be used for rendering";
     
     else
-        std::wcout << "\n" << pRenderDeviceInfo[iSpkDevIdx].szDeviceName<<" is selected for rendering "<<std::endl;
+        BOOST_LOG_TRIVIAL(info) << pRenderDeviceInfo[iSpkDevIdx].szDeviceName<<" is selected for rendering ";
 
     SAFE_ARRAYDELETE(pRenderDeviceInfo);
 
@@ -665,7 +668,7 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
     PropVariantClear(&pvFrameSize);
 
     BytesPerFrame = iFrameSize * ptrWav->nBlockAlign;
-    std::cout << "Frame Size " << iFrameSize << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Frame Size " << iFrameSize;
 
     // allocate output buffer
     cMicInputBufLen = ptrWav->nSamplesPerSec * ptrWav->nBlockAlign;
@@ -674,7 +677,7 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
     CHECK_ALLOC(pbMicInputBuffer, "out of memory.\n");
     MoFreeMediaType(&mt);
     // main loop to get mic output from the DMO
-    std::cout << "AEC is running ..." << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "AEC is running ...";
     while (1)
     {
 
@@ -716,25 +719,25 @@ static DWORD WINAPI CaptureMicThread(LPVOID ivalue)
                         lastVad = vad_state;
                         switch (vad_state) {
                         case LITEVAD_RESULT_SPEECH_BEGIN:
-                            std::cout << "Speech Begin" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "Speech Begin";
                             break;
                         case LITEVAD_RESULT_SPEECH_END:
-                            std::cout << "Speech End" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "Speech End";
                             break;
                         case LITEVAD_RESULT_SPEECH_BEGIN_AND_END:
-                            std::cout << "Speech Begin & End" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "Speech Begin & End";
                             break;
                         case LITEVAD_RESULT_FRAME_SILENCE:
-                            std::cout << "Silence" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "Silence";
                             break;
                         case LITEVAD_RESULT_FRAME_ACTIVE:
-                            //std::cout << "Frame Active" << std::endl;
+                            //BOOST_LOG_TRIVIAL(info) << "Frame Active";
                             break;
                         case LITEVAD_RESULT_ERROR:
-                            std::cout << "VAD Error" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "VAD Error";
                             break;
                         default:
-                            std::cout << "VAD State Unknown" << std::endl;
+                            BOOST_LOG_TRIVIAL(info) << "VAD State Unknown";
                             break;
                         }
                     }
@@ -776,13 +779,13 @@ static DWORD WINAPI UdpRecievingWaitingThread(LPVOID ivalue)
     int slen = sizeof(RemoteAddrIn);
     int BytesIn;
     SetUpUdpVoipReceiveEventForThread();
-    std::cout << "Udp Recv started" << '\n';
+    BOOST_LOG_TRIVIAL(info) << "Udp Recv started";
     while (1) {
         if (WaitForVoipData() == 1)
         {   
             if ((BytesIn = RecvUdpVoipData(Buffer, sizeof(Buffer), (struct sockaddr*)&RemoteAddrIn, &slen))== SOCKET_ERROR)
             {
-                std::cout << "recvfrom() failed with error code :" << WSAGetLastError() << '\n';
+                BOOST_LOG_TRIVIAL(info) << "recvfrom() failed with error code :" << WSAGetLastError();
             }
             else
             {
@@ -804,13 +807,13 @@ static DWORD WINAPI UdpRecievingWaitingThread(LPVOID ivalue)
                     memcpy(VoipBufferQueue.start_p_[index].Data, pcm_bytes, BYTES_PER_BUFFER);
                 }
                 else
-                    std::cout << "VoipBufferQueue Full" << '\n';
+                    BOOST_LOG_TRIVIAL(info) << "VoipBufferQueue Full";
                 LeaveCriticalSection(&CriticalSection);
             }
         }
         else
         {
-            std::cout << "Voip Exiting" << '\n';
+            BOOST_LOG_TRIVIAL(info) << "Voip Exiting";
             break;
         }
     }

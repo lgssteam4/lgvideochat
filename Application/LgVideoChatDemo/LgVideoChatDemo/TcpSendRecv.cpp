@@ -1,4 +1,7 @@
+#include "BoostLog.h"
+
 #include "TcpSendRecv.h"
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iostream>
@@ -18,7 +21,7 @@ int ReadDataTcp(SOCKET socket, unsigned char* data, int length)
 		{
 			if (WSAGetLastError() == WSAEWOULDBLOCK)
 			{
-				std::cout << "recv WSAEWOULDBLOCK" << std::endl;
+				BOOST_LOG_TRIVIAL(info) << "recv WSAEWOULDBLOCK";
 				bytes = 0;
 				Sleep(10);
 			}
@@ -60,7 +63,7 @@ int WriteDataTcp(SOCKET socket, unsigned char* data, int length)
 		{
 			if (WSAGetLastError() == WSAEWOULDBLOCK)
 			{
-				std::cout << "send WSAEWOULDBLOCK" << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "send WSAEWOULDBLOCK";
 				bytes_written = 0;
 				retry_count++;
 				if (retry_count > 15) return (SOCKET_ERROR);
@@ -94,7 +97,7 @@ int SSLWriteDataTcp(SSL* ssl, unsigned char* data, int length)
 		{
 			if (WSAGetLastError() == WSAEWOULDBLOCK)
 			{
-				std::cout << "send WSAEWOULDBLOCK" << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "send WSAEWOULDBLOCK";
 				bytes_written = 0;
 				retry_count++;
 				if (retry_count > 15) return (SOCKET_ERROR);
