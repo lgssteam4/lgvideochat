@@ -1,4 +1,6 @@
-﻿#include <winsock2.h>
+﻿#include "BoostLog.h"
+
+#include <winsock2.h>
 #include <windows.h>
 #include <stdio.h>
 #include <tchar.h>
@@ -114,7 +116,7 @@ static void VideoServerCleanup(void)
 
 static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 {
-	std::cout << "[B1C2V3] Server: Start ThreadVideoServer" << std::endl;
+	BOOST_LOG_TRIVIAL(info) << "Server: Start ThreadVideoServer";
 
 	SOCKADDR_IN InternetAddr;
 	HANDLE ghEvents[4];
@@ -124,7 +126,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	unsigned int SizeofImage;
 	unsigned int CurrentInputBufferSize = 1024 * 10;
 
-	std::cout << "Video Server Started Loopback " << (Loopback ? "True" : "False") << std::endl;
+	BOOST_LOG_TRIVIAL(info) << "Video Server Started Loopback " << (Loopback ? "True" : "False");
 
 	RealConnectionActive = false;
 	Mode = ImageSize;
@@ -134,14 +136,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 	if (InputBuffer == NULL)
 	{
-		std::cout << "InputBuffer Realloc failed" << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "InputBuffer Realloc failed";
 		return 1;
 	}
 
 	// 서버가 클라이언트의 연결을 수락하기 위해 사용될 소켓 생성
 	if ((Listen = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
-		std::cout << "listen socket() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "listen socket() failed with error " << WSAGetLastError();
 		return 1;
 	}
 
@@ -156,7 +158,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	// FD_CLOSE : 클라이언트와의 연결이 종료될 때 발생하는 이벤트
 	if (WSAEventSelect(Listen, hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
 	{
-		std::cout << "WSAEventSelect() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "WSAEventSelect() failed with error " << WSAGetLastError();
 		return 1;
 	}
 	InternetAddr.sin_family = AF_INET;
@@ -166,14 +168,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	// 소켓에 IP 주소와 포트 번호를 바인딩
 	if (bind(Listen, (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
 	{
-		std::cout << "bind() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "bind() failed with error " << WSAGetLastError();
 		return 1;
 	}
 
 	// 클라이언트의 연결을 수신하기 위해 소켓을 대기 상태로 설정
 	if (listen(Listen, 5))
 	{
-		std::cout << "listen() failed with error " << WSAGetLastError() << std::endl;
+		BOOST_LOG_TRIVIAL(error) << "listen() failed with error " << WSAGetLastError();
 		return 1;
 	}
 
@@ -196,7 +198,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 			// Listen 소켓의 네트워크 이벤트를 가져옴
 			if (SOCKET_ERROR == WSAEnumNetworkEvents(Listen, hListenEvent, &NetworkEvents))
 			{
-				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
+				BOOST_LOG_TRIVIAL(info) << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents;
 				NetworkEvents.lNetworkEvents = 0;
 			}
 			else
@@ -206,7 +208,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_ACCEPT_BIT] != 0)
 					{
-						std::cout << "FD_ACCEPT failed with error " << NetworkEvents.iErrorCode[FD_ACCEPT_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_ACCEPT failed with error " << NetworkEvents.iErrorCode[FD_ACCEPT_BIT];
 					}
 					else
 					{
@@ -220,33 +222,33 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							// SSL 초기화
 							initializeSSL();
-							std::cout << "[B1C2V3] Server: Success initializeSSL" << std::endl;
+							BOOST_LOG_TRIVIAL(debug) << "Server: Success initializeSSL";
 
 							// SSL 컨텍스트 생성 및 초기화
 							ctxForServer = createSSLContextForServer();
 							if (ctxForServer == NULL)
 							{
-								std::cout << "[B1C2V3] Server: Error createSSLContextForServer" << std::endl;
+								BOOST_LOG_TRIVIAL(debug) << "Server: Error createSSLContextForServer";
 								break;
 							}
-							std::cout << "[B1C2V3] Server: Success createSSLContextForServer" << std::endl;
+							BOOST_LOG_TRIVIAL(debug) << "Server: Success createSSLContextForServer";
 
 							// Accept a new connection, and add it to the socket and event lists
 							Accept = accept(Listen, (struct sockaddr*)&sa, &sa_len);
-							std::cout << "[B1C2V3] Server: Success accept" << std::endl;
+							BOOST_LOG_TRIVIAL(debug) << "Server: Success accept";
 
 							// SSL 소켓 생성
 							SSLSocketForServer = createSSLSocket(ctxForServer, Accept);
 							if (SSLSocketForServer == NULL)
 							{
-								std::cout << "[B1C2V3] Error: createSSLSocket" << std::endl;
+								BOOST_LOG_TRIVIAL(debug) << "Error: createSSLSocket";
 								SSL_CTX_free(ctxForServer);
 								break;
 							}
 							SSLAccept = SSL_get_fd(SSLSocketForServer);
 							if (SSLAccept == INVALID_SOCKET)
 							{
-								std::cout << "[B1C2V3] Error: SSL_get_fd" << std::endl;
+								BOOST_LOG_TRIVIAL(debug) << "Error: SSL_get_fd";
 								SSL_free(SSLSocketForServer);
 								SSL_CTX_free(ctxForServer);
 								break;
@@ -258,7 +260,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							}
 							else
 							{
-								std::cout << "Accepted Connection " << RemoteIp << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Accepted Connection " << RemoteIp;
 							}
 							if (!Loopback)
 							{
@@ -266,7 +268,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 									(strcmp(RemoteIp, "127.0.0.1") == 0))
 								{
 									LoopbackOverRide = true;
-									std::cout << "Loopback Over Ride" << std::endl;
+									BOOST_LOG_TRIVIAL(info) << "Loopback Over Ride";
 								}
 								else LoopbackOverRide = false;
 							}
@@ -282,23 +284,23 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								liDueTime.QuadPart = 0LL;
 								if (!OpenCamera())
 								{
-									std::cout << "OpenCamera() Failed" << std::endl;
+									BOOST_LOG_TRIVIAL(error) << "OpenCamera() Failed";
 									break;
 								}
 								VoipVoiceStart(RemoteIp, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
-								std::cout << "Voip Voice Started.." << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Voip Voice Started..";
 								RealConnectionActive = true;
 								hTimer = CreateWaitableTimer(NULL, FALSE, NULL);
 
 								if (NULL == hTimer)
 								{
-									std::cout << "CreateWaitableTimer failed " << GetLastError() << std::endl;
+									BOOST_LOG_TRIVIAL(error) << "CreateWaitableTimer failed " << GetLastError();
 									break;
 								}
 
 								if (!SetWaitableTimer(hTimer, &liDueTime, VIDEO_FRAME_DELAY, NULL, NULL, 0))
 								{
-									std::cout << "SetWaitableTimer failed  " << GetLastError() << std::endl;
+									BOOST_LOG_TRIVIAL(error) << "SetWaitableTimer failed  " << GetLastError();
 									break;
 								}
 								ghEvents[3] = hTimer;
@@ -311,7 +313,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							if (Temp != INVALID_SOCKET)
 							{
 								closesocket(Temp);
-								std::cout << "Refused-Already Connected" << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Refused-Already Connected";
 							}
 						}
 					}
@@ -321,7 +323,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
 					{
-						std::cout << "FD_CLOSE failed with error on Listen Socket" << NetworkEvents.iErrorCode[FD_CLOSE_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_CLOSE failed with error on Listen Socket" << NetworkEvents.iErrorCode[FD_CLOSE_BIT];
 					}
 
 					closesocket(Listen);
@@ -335,7 +337,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 			WSANETWORKEVENTS NetworkEvents;
 			if (SOCKET_ERROR == WSAEnumNetworkEvents(SSLAccept, hAcceptEvent, &NetworkEvents))
 			{
-				std::cout << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents;
 				NetworkEvents.lNetworkEvents = 0;
 			}
 			else
@@ -345,7 +347,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_READ_BIT] != 0)
 					{
-						std::cout << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT];
 					}
 					// 루프백 연결인 경우, 데이터를 받아서 다시 송신
 					else if ((Loopback) || (LoopbackOverRide))
@@ -359,7 +361,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 						if (bytesAvailable >= 0)
 						{
 							buffer = new (std::nothrow) unsigned char[bytesAvailable];
-							//std::cout << "FD_READ "<< bytesAvailable << std::endl;
+							//BOOST_LOG_TRIVIAL(debug) << "FD_READ "<< bytesAvailable;
 							iResult = SSLReadDataTcpNoBlock(SSLSocketForServer, buffer, bytesAvailable);
 							if (iResult > 0)
 							{
@@ -368,17 +370,17 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								delete[] buffer;
 								if (iResult == SOCKET_ERROR)
 								{
-									std::cout << "SSLWriteDataTcp failed: " << WSAGetLastError() << std::endl;
+									BOOST_LOG_TRIVIAL(error) << "SSLWriteDataTcp failed: " << WSAGetLastError();
 								}
 							}
 							else if (iResult == 0)
 							{
-								std::cout << "Connection closed on Recv" << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Connection closed on Recv";
 								CleanUpClosedConnection();
 							}
 							else
 							{
-								//std::cout << "[B1C2V3] Server: SSLReadDataTcpNoBlock failed:" << WSAGetLastError() << std::endl;
+								BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock failed:" << WSAGetLastError();
 							}
 						}
 					}
@@ -392,7 +394,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							if (iResult == 0)
 							{
 								CleanUpClosedConnection();
-								std::cout << "Connection closed on Recv" << std::endl;
+								BOOST_LOG_TRIVIAL(info) << "Connection closed on Recv";
 								break;
 							}
 							else
@@ -414,7 +416,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 											InputBuffer = (char*)std::realloc(InputBuffer, CurrentInputBufferSize);
 											if (InputBuffer == NULL)
 											{
-												std::cout << "std::realloc failed " << std::endl;
+												BOOST_LOG_TRIVIAL(error) << "std::realloc failed ";
 											}
 										}
 										InputBufferWithOffset = InputBuffer;;
@@ -430,7 +432,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								}
 							}
 						}
-						//else std::cout << "[B1C2V3] Server: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError() << std::endl;
+						else BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError();
 					}
 				}
 				// FD_WRITE 이벤트가 발생한 경우, 데이터 송신할 수 있는 상태임을 의미
@@ -438,11 +440,11 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_WRITE_BIT] != 0)
 					{
-						std::cout << "FD_WRITE failed with error " << NetworkEvents.iErrorCode[FD_WRITE_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_WRITE failed with error " << NetworkEvents.iErrorCode[FD_WRITE_BIT];
 					}
 					else
 					{
-						std::cout << "FD_WRITE" << std::endl;
+						BOOST_LOG_TRIVIAL(info) << "FD_WRITE";
 					}
 				}
 				// FD_CLOSE 이벤트가 발생한 경우, 해당 소켓을 닫고 정리
@@ -450,11 +452,11 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 				{
 					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
 					{
-						std::cout << "FD_CLOSE failed with error Connection " << NetworkEvents.iErrorCode[FD_CLOSE_BIT] << std::endl;
+						BOOST_LOG_TRIVIAL(error) << "FD_CLOSE failed with error Connection " << NetworkEvents.iErrorCode[FD_CLOSE_BIT];
 					}
 					else
 					{
-						std::cout << "FD_CLOSE" << std::endl;
+						BOOST_LOG_TRIVIAL(info) << "FD_CLOSE";
 					}
 					CleanUpClosedConnection();
 				}
@@ -467,19 +469,19 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 			if (!GetCameraFrame(sendbuff))
 			{
-				std::cout << "Camera Frame Empty" << std::endl;
+				BOOST_LOG_TRIVIAL(info) << "Camera Frame Empty";
 			}
 			numbytes = htonl((unsigned long)sendbuff.size());
 			if (SSLWriteDataTcp(SSLSocketForServer, (unsigned char*)&numbytes, sizeof(numbytes)) == sizeof(numbytes))
 			{
 				if (SSLWriteDataTcp(SSLSocketForServer, (unsigned char*)sendbuff.data(), (int)sendbuff.size()) != sendbuff.size())
 				{
-					std::cout << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError() << std::endl;
+					BOOST_LOG_TRIVIAL(error) << "SSLWriteDataTcp sendbuff.data() Failed " << WSAGetLastError();
 					CleanUpClosedConnection();
 				}
 			}
 			else {
-				std::cout << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError() << std::endl;
+				BOOST_LOG_TRIVIAL(error) << "SSLWriteDataTcp sendbuff.size() Failed " << WSAGetLastError();
 				CleanUpClosedConnection();
 			}
 		}
@@ -487,7 +489,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 	CleanUpClosedConnection();	// 연결이 종료된 클라이언트와 관련된 자원을 정리
 	VideoServerCleanup();		// 비디오 서버 자원 정리
-	std::cout << "Video Server Stopped" << std::endl;
+	BOOST_LOG_TRIVIAL(info) << "Video Server Stopped";
 	return 0;
 }
 static void CleanUpClosedConnection(void)

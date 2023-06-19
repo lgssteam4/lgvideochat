@@ -1,5 +1,7 @@
 ﻿// LgVideoChatDemo.cpp : Defines the entry point for the application.
 //
+#include "BoostLog.h"
+
 #include "framework.h"
 #include <Commctrl.h>
 #include <atlstr.h>
@@ -51,6 +53,7 @@
 
 HWND hWndMain;
 GUID InstanceGuid;
+char guidBuf[1024];
 char LocalIpAddress[512] = "127.0.0.1";
 TVoipAttr VoipAttr = {true,false};
 
@@ -94,23 +97,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     HRESULT hr;
 
     SetStdOutToNewConsole();
-
+    
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (res != NO_ERROR) {
-        std::cout << "WSAStartup failed with error " << res << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "WSAStartup failed with error ";
         return 1;
     }
     SetHostAddr();
     hr = CoCreateGuid(&InstanceGuid);
     if (hr != S_OK)
     {
-        std::cout << "GUID Create Failure " << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "GUID Create Failure ";
         return 1;
     }
-    printf("Guid = {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX}\n",
+
+    snprintf(guidBuf, sizeof(guidBuf), "Guid = {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX}",
         InstanceGuid.Data1, InstanceGuid.Data2, InstanceGuid.Data3,
         InstanceGuid.Data4[0], InstanceGuid.Data4[1], InstanceGuid.Data4[2], InstanceGuid.Data4[3],
         InstanceGuid.Data4[4], InstanceGuid.Data4[5], InstanceGuid.Data4[6], InstanceGuid.Data4[7]);
+    BOOST_LOG_TRIVIAL(info) << guidBuf;
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -118,7 +123,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     if (!OnlyOneInstance())
     {
-        std::cout << "Another Instance Running " << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Another Instance Running ";
         return 1;
     }
 
@@ -404,7 +409,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         PostQuitMessage(0);
         break;
     case WM_CLIENT_LOST:
-        std::cout << "WM_CLIENT_LOST" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
         SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
         break;
     case WM_REMOTE_CONNECT:
@@ -631,14 +636,14 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             if (ConnectToSever(RemoteAddress, VIDEO_PORT))
             {
-                std::cout << "Connected to Server" << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "Connected to Server";
                 StartVideoClient();
-                std::cout << "Video Client Started.." << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "Video Client Started..";
                 VoipVoiceStart(RemoteAddress, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
-                std::cout << "Voip Voice Started.." << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "Voip Voice Started..";
 
                 SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                std::cout << "Enable window alway on top." << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
 
                 return 1;
             }
@@ -651,7 +656,7 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else 
           {
-            std::cout << "Open Camera Failed" << std::endl;
+            BOOST_LOG_TRIVIAL(error) << "Open Camera Failed";
             return 0;
           }
     }
@@ -664,10 +669,10 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
         StopVideoClient();
         CloseCamera();
-        std::cout << "Video Client Stopped" << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
 
         SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        std::cout << "Disable window alway on top." << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
     }
     return 1;
 }
