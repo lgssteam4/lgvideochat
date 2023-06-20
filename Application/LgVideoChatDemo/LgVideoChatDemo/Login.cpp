@@ -3,10 +3,6 @@
 #include <string>
 #include <iostream>
 
-std::string loginEmail = "test@gmail.com";
-std::string loginPassword = "test1234";
-std::string generatedOTP;
-
 std::string loginToken;
 std::string accessToken;
 
@@ -121,7 +117,6 @@ bool PerformLogin(HWND hDlg)
 
         rc = request("POST", "/api/auth/verify-otp/", data, "", &status_code, response);
         if (status_code == 200)
-        //if (email == loginEmail && password == loginPassword && input_otp == generatedOTP)
         {
             // 로그인이 성공하면 true를 반환합니다.
             accessToken = response["access_token"];
@@ -184,8 +179,6 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             std::map<std::string, std::string> response;
             // Send GET request
             rc = request("GET", "/", "","",&status_code,response);
-            // IDC_BUTTON_OTP 버튼 클릭 시 OnButtonOTPClick 함수 호출
-            OnButtonOTPClick(hDlg);
 
             // Get email text
             HWND hEmailEdit = GetDlgItem(hDlg, IDC_LOGIN_E_EMAIL);
@@ -219,6 +212,9 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 loginToken = loginToken.substr(1, loginToken.length() - 2);
                 std::cout << "********** test_sch, loginToken: " << loginToken << std::endl;
 
+                // IDC_BUTTON_OTP 버튼 클릭 시 OnButtonOTPClick 함수 호출
+                OnButtonOTPClick(hDlg);
+
                 // OTP 버튼을 비활성화
                 otpButtonEnabled = false;
                 EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_OTP), FALSE);
@@ -242,24 +238,3 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
     return FALSE;
 }
-
-/*
-// Message handler for Login box.
-INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
-}*/
