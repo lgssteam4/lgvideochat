@@ -332,7 +332,8 @@ private:
 };
 
 
-int request(std::string request_method, std::string uri, std::string session_token, unsigned int* status_code, std::map<std::string, std::string>& response)
+int request(std::string request_method, std::string uri, std::string session_token,
+    unsigned int* status_code, std::map<std::string, std::string>& response)
 {
     try
     {
@@ -365,7 +366,8 @@ int request(std::string request_method, std::string uri, std::string session_tok
     return 0;
 }
 
-int request(std::string request_method, std::string uri, std::string data, std::string session_token, unsigned int* status_code, std::map<std::string, std::string>& response)
+int request(std::string request_method, std::string uri, std::string data, std::string session_token,
+    unsigned int* status_code, std::map<std::string, std::string>& response)
 {
     try
     {
@@ -395,10 +397,40 @@ int request(std::string request_method, std::string uri, std::string data, std::
         return 1;
     }
 
-
-    
-
     return 0;
+}
+
+unsigned int sendGetRequest(const std::string& function, const std::string& sessionToken) {
+    int rc = 0;
+    unsigned int statusCode = 0;
+    std::map<std::string, std::string> response;
+
+    // Send GET request
+    rc = request("GET", function, sessionToken, &statusCode, response);
+    std::cout << "GET : statusCode - " << statusCode << std::endl;
+    // 3rd param is session token
+
+    for (const auto& pair : response) {
+        std::cout << pair.first << ": " << pair.second << std::endl;
+    }
+
+    return statusCode;
+}
+
+unsigned int sendPostRequest(const std::string& function, const std::string& data, const std::string& sessionToken) {
+    int rc = 0;
+    unsigned int statusCode = 0;
+    std::map<std::string, std::string> response;
+
+    rc = request("POST", function, data, sessionToken, &statusCode, response);
+    std::cout << "POST : statusCode - " << statusCode << std::endl;
+    // 3rd param is session token
+
+    for (const auto& pair : response) {
+        std::cout << pair.first << ": " << pair.second << std::endl;
+    }
+
+    return statusCode;
 }
 
 unsigned int backendCheckEmail(const std::string& email) {
@@ -406,24 +438,15 @@ unsigned int backendCheckEmail(const std::string& email) {
     unsigned int statusCode = 0;
     std::map<std::string, std::string> response;
 
-    /*
-    // Send GET request
-    rc = request("GET", "/", "", statusCode);
-    std::cout << "GET : statusCode - " << statusCode << std::endl;
-
-    // Send POST request with POST data
-
-    std::string data = "email=viet.truong@lge.com&password=TestP4ss!@#";
-    rc = request("POST", "/api/auth/login/", data, "");
-
-    data = "login_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGU2MmIzYjUtMGFjZi0xMWVlLTlkYmUtNjA0NWJkZGM5NGY3IiwiaWF0IjoxNjg2Nzk5MTkwLCJleHAiOjE2ODY3OTk3OTB9.Cun_W_0NzeFs7h6Y3NTj_Ow8Hsnlm2bMTFpMOwZY7aM&otp=205006";
-    rc = request("POST", "/api/auth/verify-otp/", data, "");
-    */
-    //viet.truong@lge.com
     std::string data = "email=" + email;
     rc = request("POST", "/api/check-email/", data, "", &statusCode, response);
     std::cout << "POST : statusCode - " << statusCode << std::endl;
     // 3rd param is session token
 
+    for (const auto& pair : response) {
+        std::cout << pair.first << ": " << pair.second << std::endl;
+    }
+
     return statusCode;
 }
+
