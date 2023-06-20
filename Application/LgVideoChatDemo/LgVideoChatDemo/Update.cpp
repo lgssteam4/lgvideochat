@@ -2,6 +2,9 @@
 
 std::string currentPassword = "test1234";
 
+extern std::string loginToken;
+extern std::string accessToken;
+
 // Function to check if the given email is valid
 bool isValidEmail(const std::string& email) {
     // Regular expression pattern for email validation

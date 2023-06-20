@@ -1,8 +1,14 @@
 #include "Login.h"
+#include "BackendHttpsClient.h"
+#include <string>
+#include <iostream>
 
 std::string loginEmail = "test@gmail.com";
 std::string loginPassword = "test1234";
 std::string generatedOTP;
+
+std::string loginToken;
+std::string accessToken;
 
 // OTP 버튼 상태를 나타내는 변수
 bool otpButtonEnabled = true;
@@ -36,7 +42,7 @@ void ShowCountdown(HWND hDlg)
     EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_OTP), TRUE);
 
 }
-// OTP 생성 및 메일 발송 함수
+// OTP 생성 및 메일 발송 함수, 미사용. 서버에서 진행.
 void GenerateAndSendOTP(HWND hDlg)
 {
     // 6자리 OTP 생성
@@ -67,6 +73,9 @@ void OnButtonOTPClick(HWND hDlg)
 // Function to perform login logic
 bool PerformLogin(HWND hDlg)
 {
+    int rc = 0;
+    unsigned int status_code;
+    std::map<std::string, std::string> response;
     // Get email text
     HWND hEmailEdit = GetDlgItem(hDlg, IDC_LOGIN_E_EMAIL);
     int emailLength = GetWindowTextLength(hEmailEdit);
@@ -92,26 +101,44 @@ bool PerformLogin(HWND hDlg)
     // Get OTP text
     HWND hOTPEdit = GetDlgItem(hDlg, IDC_LOGIN_E_OTP);
     int otpLength = GetWindowTextLength(hOTPEdit);
-    std::string otp;
+    std::string input_otp;
     if (otpLength > 0)
     {
         std::vector<char> buffer(otpLength + 1);
         GetWindowTextA(hOTPEdit, buffer.data(), otpLength + 1);
-        otp = buffer.data();
+        input_otp = buffer.data();
     }
 
-    // Perform login logic with email, password, and OTP
-    if (!email.empty() && !password.empty() && !otp.empty())
+    std::cout << "test_sch, login_token: " << loginToken << std::endl;
+    std::cout << "test_sch, input_otp: " << input_otp << std::endl;
+
+    // Perform login logic with email, password, and OTP. 서버로 전송
+    if (!email.empty() && !password.empty() && !input_otp.empty())
     {
         // Check if the entered email, password, and OTP match the predefined values and generated OTP
-        if (email == loginEmail && password == loginPassword && otp == generatedOTP)
+        std::string data = "otp=" + input_otp + "&" + "login_token=" + loginToken;
+        std::cout << "test_sch, data: " << data << std::endl;
+
+        rc = request("POST", "/api/auth/verify-otp/", data, "", &status_code, response);
+        if (status_code == 200)
+        //if (email == loginEmail && password == loginPassword && input_otp == generatedOTP)
         {
             // 로그인이 성공하면 true를 반환합니다.
+            accessToken = response["access_token"];
+            accessToken = accessToken.substr(1, loginToken.length() - 2);
+            std::cout << "test_sch, access_token: " << accessToken << std::endl;
+            std::cout << " tst_sch, login success" << std::endl;
             return true;
+        }
+        else
+        {
+            std::cout << " tst_sch, login Fail" << std::endl;
+            return false;
         }
     }
 
     // 입력이 유효하지 않거나 로그인이 실패한 경우에는 false를 반환합니다.
+    std::cout << " tst_sch, login Fail" << std::endl;
     return false;
 }
 
@@ -150,22 +177,65 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             EndDialog(hDlg, IDCANCEL);
             return TRUE;
         }
-        else if (LOWORD(wParam) == IDC_BUTTON_OTP)
+        else if (LOWORD(wParam) == IDC_BUTTON_OTP) // e-mail, pw 입력 및 otp 생성버튼 click
         {
+            int rc = 0;
+            unsigned int status_code;
+            std::map<std::string, std::string> response;
+            // Send GET request
+            rc = request("GET", "/", "","",&status_code,response);
             // IDC_BUTTON_OTP 버튼 클릭 시 OnButtonOTPClick 함수 호출
             OnButtonOTPClick(hDlg);
 
+            // Get email text
+            HWND hEmailEdit = GetDlgItem(hDlg, IDC_LOGIN_E_EMAIL);
+            int emailLength = GetWindowTextLength(hEmailEdit);
+            std::string email;
+            if (emailLength > 0)
+            {
+                std::vector<char> buffer(emailLength + 1);
+                GetWindowTextA(hEmailEdit, buffer.data(), emailLength + 1);
+                email = buffer.data();
+            }
+
+            // Get password text
+            HWND hPasswordEdit = GetDlgItem(hDlg, IDC_LOGIN_E_PASSWORD);
+            int passwordLength = GetWindowTextLength(hPasswordEdit);
+            std::string password;
+            if (passwordLength > 0)
+            {
+                std::vector<char> buffer(passwordLength + 1);
+                GetWindowTextA(hPasswordEdit, buffer.data(), passwordLength + 1);
+                password = buffer.data();
+            }
+
             // IDC_BUTTON_OTP 버튼을 누르면 OTP를 생성하고 메일로 발송합니다.
-            GenerateAndSendOTP(hDlg);
+            std::string data = "email=" + email + "&" + "password=" + password;
 
-            // OTP 버튼을 비활성화
-            otpButtonEnabled = false;
-            EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_OTP), FALSE);
+			rc = request("POST", "/api/auth/login/", data, "", &status_code, response);
+            if(status_code == 200)
+            {
+                loginToken = response["login_token"];
+                loginToken = loginToken.substr(1, loginToken.length() - 2);
+                std::cout << "********** test_sch, loginToken: " << loginToken << std::endl;
 
-            // 카운트다운 시작
-            std::thread countdownThread(ShowCountdown, hDlg);
-            countdownThread.detach();
-            return TRUE;
+                // OTP 버튼을 비활성화
+                otpButtonEnabled = false;
+                EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_OTP), FALSE);
+
+                // 카운트다운 시작
+                std::thread countdownThread(ShowCountdown, hDlg);
+                countdownThread.detach();
+                return TRUE;
+            
+            }
+            else
+            {
+                std::cout << " email & pw not matched" << std::endl;
+                return FALSE; // email & pw not matched.
+            }
+
+
         }
         break;
     }
