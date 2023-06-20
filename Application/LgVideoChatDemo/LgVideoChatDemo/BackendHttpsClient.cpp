@@ -5,6 +5,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/url/src.hpp>
+#include <nlohmann/json.hpp>
 #include "BackendHttpsClient.h"
 
 using boost::asio::ip::tcp;
@@ -103,6 +104,11 @@ public:
     }
     int get_status_code() const {
         return status_code_;
+    }
+
+    std::map<std::string, std::string> getKeyValue()
+    {
+        return keyValuePairs;
     }
 
 private:
@@ -242,6 +248,31 @@ private:
         }
     }
 
+    std::string CopyStreambufToString(std::streambuf* buf) {
+        std::stringstream ss;
+        ss << buf;
+        return ss.str();
+    }
+
+    std::map<std::string, std::string> ParseJsonString(const std::string& jsonString) {
+        std::map<std::string, std::string> result;
+
+        try {
+            // JSON 문자열을 파싱하여 nlohmann::json 객체로 변환
+            nlohmann::json json = nlohmann::json::parse(jsonString);
+
+            // json 객체를 순회하면서 key-value 쌍을 추출하여 map에 저장
+            for (auto it = json.begin(); it != json.end(); ++it) {
+                result[it.key()] = it.value().dump();
+            }
+        }
+        catch (const std::exception& e) {
+            std::cout << "Error parsing JSON: " << e.what() << std::endl;
+        }
+
+        return result;
+    }
+
     void handleReadHeaders(const boost::system::error_code& err)
     {
         std::cout << "handleReadHeaders\n";
@@ -256,7 +287,11 @@ private:
 
             // Write whatever content we already have to output.
             if (response_.size() > 0)
-                std::cout << &response_;
+            {
+                std::string str = CopyStreambufToString(&response_);
+                std::cout << "content string : " << str << std::endl;
+                keyValuePairs = ParseJsonString(str);
+            }
 
             // Start reading remaining data until EOF.
             boost::asio::async_read(socket_, response_,
@@ -293,10 +328,11 @@ private:
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket_;
     boost::asio::streambuf request_;
     boost::asio::streambuf response_;
+    std::map<std::string, std::string> keyValuePairs;
 };
 
 
-int request(std::string request_method, std::string uri, std::string session_token, unsigned int* status_code)
+int request(std::string request_method, std::string uri, std::string session_token, unsigned int* status_code, std::map<std::string, std::string>& response)
 {
     try
     {
@@ -318,6 +354,7 @@ int request(std::string request_method, std::string uri, std::string session_tok
         io_context.run();
         *status_code = c.get_status_code();
         std::cout << "status_code : " << *status_code << "\n";
+        response = c.getKeyValue();
     }
     catch (std::exception& e)
     {
@@ -328,7 +365,7 @@ int request(std::string request_method, std::string uri, std::string session_tok
     return 0;
 }
 
-int request(std::string request_method, std::string uri, std::string data, std::string session_token, unsigned int* status_code)
+int request(std::string request_method, std::string uri, std::string data, std::string session_token, unsigned int* status_code, std::map<std::string, std::string>& response)
 {
     try
     {
@@ -350,6 +387,7 @@ int request(std::string request_method, std::string uri, std::string data, std::
         io_context.run();
         *status_code = c.get_status_code();
         std::cout << "status_code : " << *status_code << "\n";
+        response = c.getKeyValue();
     }
     catch (std::exception& e)
     {
@@ -357,44 +395,16 @@ int request(std::string request_method, std::string uri, std::string data, std::
         return 1;
     }
 
+
+    
+
     return 0;
-}
-
-std::map<std::string, std::string> parseKeyValuePairs(const std::string& input) {
-    std::map<std::string, std::string> keyValuePairs;
-    size_t startPos = 0;
-    size_t endPos = input.find('&');
-
-    while (endPos != std::string::npos) {
-        std::string pair = input.substr(startPos, endPos - startPos);
-        size_t equalPos = pair.find('=');
-
-        if (equalPos != std::string::npos) {
-            std::string key = pair.substr(0, equalPos);
-            std::string value = pair.substr(equalPos + 1);
-            keyValuePairs[key] = value;
-        }
-
-        startPos = endPos + 1;
-        endPos = input.find('&', startPos);
-    }
-
-    // Process the last key-value pair after the last '&'
-    std::string lastPair = input.substr(startPos);
-    size_t equalPos = lastPair.find('=');
-
-    if (equalPos != std::string::npos) {
-        std::string key = lastPair.substr(0, equalPos);
-        std::string value = lastPair.substr(equalPos + 1);
-        keyValuePairs[key] = value;
-    }
-
-    return keyValuePairs;
 }
 
 unsigned int backendCheckEmail(const std::string& email) {
     int rc = 0;
     unsigned int statusCode = 0;
+    std::map<std::string, std::string> response;
 
     /*
     // Send GET request
@@ -411,7 +421,7 @@ unsigned int backendCheckEmail(const std::string& email) {
     */
     //viet.truong@lge.com
     std::string data = "email=" + email;
-    rc = request("POST", "/api/check-email/", data, "", &statusCode);
+    rc = request("POST", "/api/check-email/", data, "", &statusCode, response);
     std::cout << "POST : statusCode - " << statusCode << std::endl;
     // 3rd param is session token
 
