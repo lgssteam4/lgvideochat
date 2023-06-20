@@ -23,7 +23,6 @@ static HANDLE hListenEvent = INVALID_HANDLE_VALUE;
 static HANDLE hEndVideoServerEvent = INVALID_HANDLE_VALUE;
 static HANDLE hTimer = INVALID_HANDLE_VALUE;
 static SOCKET Listen = INVALID_SOCKET;
-//static SOCKET SSLListen = INVALID_SOCKET;
 static SOCKET Accept = INVALID_SOCKET;
 static SOCKET SSLAccept = INVALID_SOCKET;
 SSL_CTX* ctxForServer = NULL;
@@ -51,6 +50,7 @@ bool StartVideoServer(bool& Loopback)
 	}
 	return true;
 }
+
 bool StopVideoServer(void)
 {
 	VideoServerSetExitEvent();
@@ -62,17 +62,24 @@ bool StopVideoServer(void)
 	VideoServerCleanup();
 	return true;
 }
+
 bool IsVideoServerRunning(void)
 {
 	if (hThreadVideoServer == INVALID_HANDLE_VALUE) return false;
 	else return true;
-
 }
+
+void ClosedConnection(void)
+{
+	CleanUpClosedConnection();
+}
+
 static void VideoServerSetExitEvent(void)
 {
 	if (hEndVideoServerEvent != INVALID_HANDLE_VALUE)
 		SetEvent(hEndVideoServerEvent);
 }
+
 static void VideoServerCleanup(void)
 {
 	if (hListenEvent != INVALID_HANDLE_VALUE)
@@ -116,7 +123,7 @@ static void VideoServerCleanup(void)
 
 static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 {
-	BOOST_LOG_TRIVIAL(info) << "Server: Start ThreadVideoServer";
+	BOOST_LOG_TRIVIAL(debug) << "Server: Start ThreadVideoServer";
 
 	SOCKADDR_IN InternetAddr;
 	HANDLE ghEvents[4];
@@ -141,19 +148,23 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	}
 
 	// 서버가 클라이언트의 연결을 수락하기 위해 사용될 소켓 생성
+	// Creates a socket that the server will use to accept connections from clients
 	if ((Listen = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
 		BOOST_LOG_TRIVIAL(error) << "listen socket() failed with error " << WSAGetLastError();
 		return 1;
 	}
 
-	// 클라이언트의 연결 요청 및 소켓 이벤트 처리 핸들
+	// 클라이언트의 연결 요청 및 소켓 이벤트 처리 핸들 생성
+	// Create a handle to handle client connection requests and socket events
 	hListenEvent = WSACreateEvent();
 
-	// 비디오 서버 종료 이벤트 핸들
+	// 비디오 서버 종료 이벤트 핸들 생성
+	// Create a video server end event handle
 	hEndVideoServerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 	// 소켓과 이벤트 핸들을 연결 (FD_ACCEPT와 FD_CLOSE 이벤트 감시하도록 지정)
+	// // Connect socket and event handle (specify to watch for FD_READ and FD_CLOSE events)
 	// FD_ACCEPT : 클라이언트의 연결 요청을 수락할 때 발생하는 이벤트
 	// FD_CLOSE : 클라이언트와의 연결이 종료될 때 발생하는 이벤트
 	if (WSAEventSelect(Listen, hListenEvent, FD_ACCEPT | FD_CLOSE) == SOCKET_ERROR)
@@ -166,6 +177,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	InternetAddr.sin_port = htons(VIDEO_PORT);
 
 	// 소켓에 IP 주소와 포트 번호를 바인딩
+	// Bind an IP address and port number to a socket
 	if (bind(Listen, (PSOCKADDR)&InternetAddr, sizeof(InternetAddr)) == SOCKET_ERROR)
 	{
 		BOOST_LOG_TRIVIAL(error) << "bind() failed with error " << WSAGetLastError();
@@ -173,6 +185,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	}
 
 	// 클라이언트의 연결을 수신하기 위해 소켓을 대기 상태로 설정
+	// Set a socket to wait to listen for connections from clients
 	if (listen(Listen, 5))
 	{
 		BOOST_LOG_TRIVIAL(error) << "listen() failed with error " << WSAGetLastError();
@@ -182,6 +195,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	ghEvents[0] = hEndVideoServerEvent;
 	ghEvents[1] = hListenEvent;
 	NumEvents = 2;
+
 	while (1) {
 		dwEvent = WaitForMultipleObjects(
 			NumEvents,	// number of objects in array
@@ -190,12 +204,15 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 			INFINITE);	// INFINITE) wait
 
 		// 비디오 서버 종료 이벤트
+		// Video server end event
 		if (dwEvent == WAIT_OBJECT_0) break;
 		// 클라이언트의 연결 요청 이벤트
+		// Client's connection request event
 		else if (dwEvent == WAIT_OBJECT_0 + 1)
 		{
 			WSANETWORKEVENTS NetworkEvents;
 			// Listen 소켓의 네트워크 이벤트를 가져옴
+			// Get network events on listen socket
 			if (SOCKET_ERROR == WSAEnumNetworkEvents(Listen, hListenEvent, &NetworkEvents))
 			{
 				BOOST_LOG_TRIVIAL(info) << "WSAEnumNetworkEvent: " << WSAGetLastError() << " dwEvent  " << dwEvent << " lNetworkEvent " << std::hex << NetworkEvents.lNetworkEvents;
@@ -204,6 +221,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 			else
 			{
 				// FD_ACCEPT 이벤트가 발생한 경우, 새로운 클라이언트 연결을 수락
+				// Accept new client connection when FD_ACCEPT event occurs
 				if (NetworkEvents.lNetworkEvents & FD_ACCEPT)
 				{
 					if (NetworkEvents.iErrorCode[FD_ACCEPT_BIT] != 0)
@@ -212,49 +230,53 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 					}
 					else
 					{
+						struct sockaddr_storage sa{};
+						socklen_t sa_len = sizeof(sa);
+						char RemoteIp[INET6_ADDRSTRLEN];
+						int err = -1;
+
 						if (Accept == INVALID_SOCKET)
 						{
-							struct sockaddr_storage sa;
-							socklen_t sa_len = sizeof(sa);
-							char RemoteIp[INET6_ADDRSTRLEN];
-
-							LARGE_INTEGER liDueTime;
-
-							// SSL 초기화
-							initializeSSL();
-							BOOST_LOG_TRIVIAL(debug) << "Server: Success initializeSSL";
-
-							// SSL 컨텍스트 생성 및 초기화
-							ctxForServer = createSSLContextForServer();
-							if (ctxForServer == NULL)
-							{
-								BOOST_LOG_TRIVIAL(debug) << "Server: Error createSSLContextForServer";
-								break;
-							}
-							BOOST_LOG_TRIVIAL(debug) << "Server: Success createSSLContextForServer";
+							LARGE_INTEGER liDueTime{};
 
 							// Accept a new connection, and add it to the socket and event lists
 							Accept = accept(Listen, (struct sockaddr*)&sa, &sa_len);
 							BOOST_LOG_TRIVIAL(debug) << "Server: Success accept";
 
+							// SSL 초기화
+							// Initialize SSL
+							initializeSSL();
+							BOOST_LOG_TRIVIAL(debug) << "Server: Success initializeSSL";
+
+							// SSL 컨텍스트 생성 및 초기화
+							// Create and initialize SSL context
+							ctxForServer = createSSLContextForServer();
+							if (ctxForServer == NULL)
+							{
+								BOOST_LOG_TRIVIAL(error) << "Server: Error createSSLContextForServer";
+								break;
+							}
+							BOOST_LOG_TRIVIAL(debug) << "Server: Success createSSLContextForServer";
+
 							// SSL 소켓 생성
+							// Create SSL socket
 							SSLSocketForServer = createSSLSocket(ctxForServer, Accept);
 							if (SSLSocketForServer == NULL)
 							{
-								BOOST_LOG_TRIVIAL(debug) << "Error: createSSLSocket";
+								BOOST_LOG_TRIVIAL(error) << "Server: Error createSSLSocket";
 								SSL_CTX_free(ctxForServer);
 								break;
 							}
 							SSLAccept = SSL_get_fd(SSLSocketForServer);
 							if (SSLAccept == INVALID_SOCKET)
 							{
-								BOOST_LOG_TRIVIAL(debug) << "Error: SSL_get_fd";
+								BOOST_LOG_TRIVIAL(error) << "Server: Error SSL_get_fd";
 								SSL_free(SSLSocketForServer);
 								SSL_CTX_free(ctxForServer);
 								break;
 							}
 
-							int err = getnameinfo((struct sockaddr*)&sa, sa_len, RemoteIp, sizeof(RemoteIp), 0, 0, NI_NUMERICHOST);
+							err = getnameinfo((struct sockaddr*)&sa, sa_len, RemoteIp, sizeof(RemoteIp), 0, 0, NI_NUMERICHOST);
 							if (err != 0) {
 								snprintf(RemoteIp, sizeof(RemoteIp), "invalid address");
 							}
@@ -262,6 +284,10 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							{
 								BOOST_LOG_TRIVIAL(info) << "Accepted Connection " << RemoteIp;
 							}
+
+							// Retrieves the information of the other party on the call from the back-end server using RemoteIp and displays it on the screen
+							// ToDo: RemoteIp를 이용하여 백앤드 서버로부터 통화 중인 상대방 정보를 가져와 화면에 표시
+
 							if (!Loopback)
 							{
 								if ((strcmp(RemoteIp, LocalIpAddress) == 0) ||
@@ -273,7 +299,15 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								else LoopbackOverRide = false;
 							}
 
+							int checkOK = MessageBox(hWndMain, L"Would you like to accept the phone call?", L"Video call is coming", MB_ICONQUESTION | MB_OKCANCEL);
+							if (checkOK != IDOK)
+							{
+								BOOST_LOG_TRIVIAL(info) << "Server: Rejected video call";
+								CleanUpClosedConnection();
+							}
+
 							// 연결 상태를 알리는 메시지 전송
+							// Send message indicating connection status
 							PostMessage(hWndMain, WM_REMOTE_CONNECT, 0, 0);
 							hAcceptEvent = WSACreateEvent();
 							WSAEventSelect(SSLAccept, hAcceptEvent, FD_READ | FD_WRITE | FD_CLOSE);
@@ -309,16 +343,25 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 						}
 						else
 						{
-							SOCKET Temp = accept(Listen, NULL, NULL);
+							SOCKET Temp = accept(Listen, (struct sockaddr*)&sa, &sa_len);
 							if (Temp != INVALID_SOCKET)
 							{
+								// 부재중 통화 기록 처리
+								err = getnameinfo((struct sockaddr*)&sa, sa_len, RemoteIp, sizeof(RemoteIp), 0, 0, NI_NUMERICHOST);
+								if (err != 0) {
+									snprintf(RemoteIp, sizeof(RemoteIp), "invalid address");
+								}
+
+								// Retrieves the other party information of the missed call record from the back-end server using RemoteIp and displays it on the screen
+								// ToDo: RemoteIp를 이용하여 백앤드 서버로부터 부재 중 통화 기록의 상대방 정보를 가져와 화면에 표시
+
+
 								closesocket(Temp);
 								BOOST_LOG_TRIVIAL(info) << "Refused-Already Connected";
 							}
 						}
 					}
 				}
-				// FD_CLOSE 이벤트가 발생한 경우, 해당 소켓을 닫고 정리
 				if (NetworkEvents.lNetworkEvents & FD_CLOSE)
 				{
 					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
@@ -328,10 +371,12 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 					closesocket(Listen);
 					Listen = INVALID_SOCKET;
+					//break;
 				}
 			}
 		}
 		// 연결된 클라이언트 소켓의 이벤트가 발생한 경우, 데이터 송수신을 처리
+		// Data transmission and reception are handled when an event of a connected client socket occurs
 		else if (dwEvent == WAIT_OBJECT_0 + 2)
 		{
 			WSANETWORKEVENTS NetworkEvents;
@@ -343,6 +388,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 			else
 			{
 				// FD_READ 이벤트가 발생한 경우, 데이터를 읽어옴
+				// Read data when FD_READ event occurs
 				if (NetworkEvents.lNetworkEvents & FD_READ)
 				{
 					if (NetworkEvents.iErrorCode[FD_READ_BIT] != 0)
@@ -350,6 +396,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 						BOOST_LOG_TRIVIAL(error) << "FD_READ failed with error " << NetworkEvents.iErrorCode[FD_READ_BIT];
 					}
 					// 루프백 연결인 경우, 데이터를 받아서 다시 송신
+					// Receive the data and send it back when loopback connection
 					else if ((Loopback) || (LoopbackOverRide))
 					{
 						unsigned char* buffer;
@@ -375,12 +422,12 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							}
 							else if (iResult == 0)
 							{
-								BOOST_LOG_TRIVIAL(info) << "Connection closed on Recv";
+								BOOST_LOG_TRIVIAL(error) << "Connection closed on Recv";
 								CleanUpClosedConnection();
 							}
 							else
 							{
-								BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock failed:" << WSAGetLastError();
+								//BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock failed:" << WSAGetLastError();
 							}
 						}
 					}
@@ -394,7 +441,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							if (iResult == 0)
 							{
 								CleanUpClosedConnection();
-								BOOST_LOG_TRIVIAL(info) << "Connection closed on Recv";
+								BOOST_LOG_TRIVIAL(error) << "Connection closed on Recv";
 								break;
 							}
 							else
@@ -432,7 +479,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								}
 							}
 						}
-						else BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError();
+						//else BOOST_LOG_TRIVIAL(debug) << "Server: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError();
 					}
 				}
 				// FD_WRITE 이벤트가 발생한 경우, 데이터 송신할 수 있는 상태임을 의미
@@ -444,7 +491,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 					}
 					else
 					{
-						BOOST_LOG_TRIVIAL(info) << "FD_WRITE";
+						BOOST_LOG_TRIVIAL(info) << "Server: FD_WRITE";
 					}
 				}
 				// FD_CLOSE 이벤트가 발생한 경우, 해당 소켓을 닫고 정리
@@ -456,13 +503,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 					}
 					else
 					{
-						BOOST_LOG_TRIVIAL(info) << "FD_CLOSE";
+						BOOST_LOG_TRIVIAL(info) << "Server: FD_CLOSE";
 					}
 					CleanUpClosedConnection();
 				}
 			}
 		}
-		// 타이머 이벤트가 발생한 경우, 카메라에서 프레임을 가져와 클라이언트에 전송합니다.
+		// 타이머 이벤트가 발생한 경우, 카메라에서 프레임을 가져와 클라이언트에 전송
+		// When a timer event occurs, frames are taken from the camera and sent to the client
 		else if (dwEvent == WAIT_OBJECT_0 + 3)
 		{
 			unsigned int numbytes;
@@ -492,6 +540,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 	BOOST_LOG_TRIVIAL(info) << "Video Server Stopped";
 	return 0;
 }
+
 static void CleanUpClosedConnection(void)
 {
 	if (Accept != INVALID_SOCKET)

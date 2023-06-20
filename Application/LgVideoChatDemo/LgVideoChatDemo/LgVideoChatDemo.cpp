@@ -141,58 +141,60 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     MSG msg;
 
-    // Main message loop:
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-    }
-  
-    if (pCout)
-    {
-      fclose(pCout);
-      FreeConsole();
-    }
-    WSACleanup();
-    return (int) msg.wParam;
+	// Main message loop:
+	while (GetMessage(&msg, nullptr, 0, 0))
+	{
+		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+	}
+
+	if (pCout)
+	{
+		fclose(pCout);
+		FreeConsole();
+	}
+	WSACleanup();
+	return (int)msg.wParam;
 }
+
 static void SetStdOutToNewConsole(void)
 {
-    // Allocate a console for this app
-    AllocConsole();
-    //AttachConsole(ATTACH_PARENT_PROCESS);
-    freopen_s(&pCout, "CONOUT$", "w", stdout);
+	// Allocate a console for this app
+	AllocConsole();
+	//AttachConsole(ATTACH_PARENT_PROCESS);
+	freopen_s(&pCout, "CONOUT$", "w", stdout);
 }
+
 static void SetHostAddr(void)
 {
-    // Get the local hostname
-    struct addrinfo* _addrinfo;
-    struct addrinfo* _res;
-    char _address[INET6_ADDRSTRLEN];
-    char szHostName[255];
-    gethostname(szHostName, sizeof(szHostName));
-    getaddrinfo(szHostName, NULL, 0, &_addrinfo);
+	// Get the local hostname
+	struct addrinfo* _addrinfo;
+	struct addrinfo* _res;
+	char _address[INET6_ADDRSTRLEN];
+	char szHostName[255];
+	gethostname(szHostName, sizeof(szHostName));
+	getaddrinfo(szHostName, NULL, 0, &_addrinfo);
 
-    for (_res = _addrinfo; _res != NULL; _res = _res->ai_next)
-    {
-        if (_res->ai_family == AF_INET)
-        {
-            if (NULL == inet_ntop(AF_INET,
-                &((struct sockaddr_in*)_res->ai_addr)->sin_addr,
-                _address,
-                sizeof(_address))
-                )
-            {
-                perror("inet_ntop");
-                return;
-            }
-            strcpy_s(RemoteAddress, sizeof(RemoteAddress), _address);
-            strcpy_s(LocalIpAddress, sizeof(LocalIpAddress), _address);
-        }
-    }
+	for (_res = _addrinfo; _res != NULL; _res = _res->ai_next)
+	{
+		if (_res->ai_family == AF_INET)
+		{
+			if (NULL == inet_ntop(AF_INET,
+				&((struct sockaddr_in*)_res->ai_addr)->sin_addr,
+				_address,
+				sizeof(_address))
+				)
+			{
+				perror("inet_ntop");
+				return;
+			}
+			strcpy_s(RemoteAddress, sizeof(RemoteAddress), _address);
+			strcpy_s(LocalIpAddress, sizeof(LocalIpAddress), _address);
+		}
+	}
 }
 
 //
@@ -202,23 +204,23 @@ static void SetHostAddr(void)
 //
 static ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEXW wcex;
+	WNDCLASSEXW wcex;
 
-    wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LGVIDEOCHATDEMO));
-    wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_LGVIDEOCHATDEMO);
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc = WndProc;
+	wcex.cbClsExtra = 0;
+	wcex.cbWndExtra = 0;
+	wcex.hInstance = hInstance;
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LGVIDEOCHATDEMO));
+	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LGVIDEOCHATDEMO);
+	wcex.lpszClassName = szWindowClass;
+	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
-    return RegisterClassExW(&wcex);
+	return RegisterClassExW(&wcex);
 }
 
 //
@@ -233,20 +235,20 @@ static ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   hInst = hInstance; // Store instance handle in our global variable
+	hInst = hInstance; // Store instance handle in our global variable
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
-   if (!hWnd)
-   {
-      return FALSE;
-   }
+	if (!hWnd)
+	{
+		return FALSE;
+	}
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+	ShowWindow(hWnd, nCmdShow);
+	UpdateWindow(hWnd);
 
-   return TRUE;
+	return TRUE;
 }
 
 //
@@ -261,502 +263,518 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    INT_PTR result_login;
-    switch (message)
-    {
-    case WM_COMMAND:
-        {
-             int wmId = LOWORD(wParam);
-            // Parse the menu selections:
-            switch (wmId)
-            {
-            case IDC_EDIT_REMOTE:
-            {
-             HWND hEditWnd;
-             hEditWnd = GetDlgItem(hWnd, IDC_EDIT_REMOTE);
-             GetWindowTextA(hEditWnd, RemoteAddress,sizeof(RemoteAddress));
-            }
-            break;
-            
-            case IDC_CHECKBOX_LOOPBACK:
-            {
-                BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_LOOPBACK);
-                if (checked) {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, BST_UNCHECKED);
-                    Loopback = false;;
-                }
-                else {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, BST_CHECKED);
-                    Loopback = true;
-                }
-            }
-            break;
+	INT_PTR result_login;
+	switch (message)
+	{
+	case WM_COMMAND:
+	{
+		int wmId = LOWORD(wParam);
+		// Parse the menu selections:
+		switch (wmId)
+		{
+		case IDC_EDIT_REMOTE:
+		{
+			HWND hEditWnd;
+			hEditWnd = GetDlgItem(hWnd, IDC_EDIT_REMOTE);
+			GetWindowTextA(hEditWnd, RemoteAddress, sizeof(RemoteAddress));
+		}
+		break;
 
-            case IDC_CHECKBOX_AEC:
-            {
-                BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_AEC);
-                if (checked) {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, BST_UNCHECKED);
-                    VoipAttr.AecOn = false;;
-                }
-                else {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, BST_CHECKED);
-                    VoipAttr.AecOn = true;
-                }
-            }
-            break;
+		case IDC_CHECKBOX_LOOPBACK:
+		{
+			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_LOOPBACK);
+			if (checked) {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, BST_UNCHECKED);
+				Loopback = false;;
+			}
+			else {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, BST_CHECKED);
+				Loopback = true;
+			}
+		}
+		break;
 
-            case IDC_CHECKBOX_NS:
-            {
-                BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_NS);
-                if (checked) {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_NS, BST_UNCHECKED);
-                    VoipAttr.NoiseSuppressionOn = false;;
-                }
-                else {
-                    CheckDlgButton(hWnd, IDC_CHECKBOX_NS, BST_CHECKED);
-                    VoipAttr.NoiseSuppressionOn = true;
-                }
-            }
-            break;
+		case IDC_CHECKBOX_AEC:
+		{
+			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_AEC);
+			if (checked) {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, BST_UNCHECKED);
+				VoipAttr.AecOn = false;;
+			}
+			else {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, BST_CHECKED);
+				VoipAttr.AecOn = true;
+			}
+		}
+		break;
 
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-                break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
-                break;
-            case IDM_CONNECT:
-                if (OnConnect(hWnd, message, wParam, lParam))
-                {
-                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
-                        (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
-                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                }
-                break;
-            case IDM_DISCONNECT:
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
-                    (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
-                    (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-                OnDisconnect(hWnd, message, wParam, lParam);
-                break;
-            case IDM_START_SERVER:
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
-                    (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
-                    (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_LOOPBACK), false);
-                //EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_AEC), false);
-                //EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), false);
-                OnStartServer(hWnd, message, wParam, lParam);
-                break;
-            case IDM_STOP_SERVER:
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
-                    (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
-                    (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-                EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_LOOPBACK), true);
-                //EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_AEC), true);
-                //EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), true);
-                OnStopServer(hWnd, message, wParam, lParam);
-                break;
-			case IDM_LOGIN:
-                result_login = DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGINDIALOG), hWnd, Login);
-                if (result_login == IDOK) {
-                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
-                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                    SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
-                        (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-                }
-				break;
-			case IDM_JOIN:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_JOINDIALOG), hWnd, Join);
-				break;
-			case IDM_UPDATE:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
-                break;
+		case IDC_CHECKBOX_NS:
+		{
+			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_NS);
+			if (checked) {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_NS, BST_UNCHECKED);
+				VoipAttr.NoiseSuppressionOn = false;;
+			}
+			else {
+				CheckDlgButton(hWnd, IDC_CHECKBOX_NS, BST_CHECKED);
+				VoipAttr.NoiseSuppressionOn = true;
+			}
+		}
+		break;
 
-            default:
-                return DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_CREATE:
-        OnCreate(hWnd, message, wParam, lParam);
-        break;
-    case WM_SIZE:
-        OnSize(hWnd, message, wParam, lParam);
-        break;
+		case IDM_ABOUT:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+			break;
+		case IDM_EXIT:
+			DestroyWindow(hWnd);
+			break;
+		case IDM_CONNECT:
+			if (OnConnect(hWnd, message, wParam, lParam))
+			{
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			}
+			break;
+		case IDM_DISCONNECT:
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+				(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+			OnDisconnect(hWnd, message, wParam, lParam);
+			break;
+		case IDM_START_SERVER:
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
+				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
+				(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_LOOPBACK), false);
+			//EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_AEC), false);
+			//EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), false);
+			OnStartServer(hWnd, message, wParam, lParam);
+			break;
+		case IDM_STOP_SERVER:
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
+				(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
+				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+				(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+			EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_LOOPBACK), true);
+			//EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_AEC), true);
+			//EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), true);
+			OnStopServer(hWnd, message, wParam, lParam);
+			break;
+		case IDM_LOGIN:
+			result_login = DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGINDIALOG), hWnd, Login);
+			if (result_login == IDOK) {
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+			}
+			break;
+		case IDM_JOIN:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_JOINDIALOG), hWnd, Join);
+			break;
+		case IDM_UPDATE:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
+			break;
 
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            // TODO: Add any drawing code that uses hdc here...
-            EndPaint(hWnd, &ps);
-        }
-        break;
-    case WM_CLOSE:
-        {
-            int checkOK = MessageBox(hWnd, L"Are you sure you want to exit the program?", L"LGVideoChatDemo Application", MB_ICONQUESTION | MB_OKCANCEL);
-            if (checkOK != IDCANCEL) {
-                DefWindowProc(hWnd, message, wParam, lParam);
-            }
-        }
-        break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-    case WM_CLIENT_LOST:
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+	}
+	break;
+	case WM_CREATE:
+		OnCreate(hWnd, message, wParam, lParam);
+		break;
+	case WM_SIZE:
+		OnSize(hWnd, message, wParam, lParam);
+		break;
+	case WM_PAINT:
+	{
+		PAINTSTRUCT ps;
+		HDC hdc = BeginPaint(hWnd, &ps);
+		// TODO: Add any drawing code that uses hdc here...
+		EndPaint(hWnd, &ps);
+	}
+	break;
+	case WM_CLOSE:
+	{
+		int checkOK = MessageBox(hWnd, L"Are you sure you want to exit the program?", L"LGVideoChatDemo Application", MB_ICONQUESTION | MB_OKCANCEL);
+		if (checkOK != IDCANCEL) {
+			DefWindowProc(hWnd, message, wParam, lParam);
+		}
+	}
+	break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_CLIENT_LOST:
         BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
-        SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
-        break;
-    case WM_REMOTE_CONNECT:
-        SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
-            (LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-        break;
-    case WM_REMOTE_LOST:
-        SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
-            (LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-        break;
-    case WM_VAD_STATE:
-        {
-          HWND hTempWnd;
-          litevad_result_t VadState;
-          hTempWnd = GetDlgItem(hWnd, IDC_VAD_STATE_STATUS);
-          VadState = (litevad_result_t)wParam;
-          switch (VadState) 
-          {
-          case LITEVAD_RESULT_SPEECH_BEGIN:
-              SetWindowTextA(hTempWnd, "Speech");
-              break;
-          case LITEVAD_RESULT_SPEECH_END:
-              SetWindowTextA(hTempWnd, "Speech End");
-              break;
-          case LITEVAD_RESULT_SPEECH_BEGIN_AND_END:
-              SetWindowTextA(hTempWnd, "Speech Begin & End");
-              break;
-          case LITEVAD_RESULT_FRAME_SILENCE:
-              SetWindowTextA(hTempWnd, "Silence");
-              break;
-          case LITEVAD_RESULT_FRAME_ACTIVE:
-              break;
-          case LITEVAD_RESULT_ERROR:
-              SetWindowTextA(hTempWnd, "VAD Error");
-              break;
-          default:
-              SetWindowTextA(hTempWnd, "Unknown Error");
-              break;
-          }
-        }
-        break;
+		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
+		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		break;
+	case WM_REMOTE_CONNECT:
+		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+		break;
+	case WM_REMOTE_LOST:
+		std::cout << "WM_REMOTE_LOST" << std::endl;
+		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		break;
+	case WM_VAD_STATE:
+	{
+		HWND hTempWnd;
+		litevad_result_t VadState;
+		hTempWnd = GetDlgItem(hWnd, IDC_VAD_STATE_STATUS);
+		VadState = (litevad_result_t)wParam;
+		switch (VadState)
+		{
+		case LITEVAD_RESULT_SPEECH_BEGIN:
+			SetWindowTextA(hTempWnd, "Speech");
+			break;
+		case LITEVAD_RESULT_SPEECH_END:
+			SetWindowTextA(hTempWnd, "Speech End");
+			break;
+		case LITEVAD_RESULT_SPEECH_BEGIN_AND_END:
+			SetWindowTextA(hTempWnd, "Speech Begin & End");
+			break;
+		case LITEVAD_RESULT_FRAME_SILENCE:
+			SetWindowTextA(hTempWnd, "Silence");
+			break;
+		case LITEVAD_RESULT_FRAME_ACTIVE:
+			break;
+		case LITEVAD_RESULT_ERROR:
+			SetWindowTextA(hTempWnd, "VAD Error");
+			break;
+		default:
+			SetWindowTextA(hTempWnd, "Unknown Error");
+			break;
+		}
+	}
+	break;
 
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
-    return 0;
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return 0;
 }
 
 // Message handler for about box.
 static INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
 
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
-    }
-    return (INT_PTR)FALSE;
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
 }
 HIMAGELIST g_hImageList = NULL;
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    // Declare and initialize local constants.
-    const int ImageListID = 0;
-    const int numButtons = 7;
-    const int bitmapSize = 16;
+	// Declare and initialize local constants.
+	const int ImageListID = 0;
+	const int numButtons = 7;
+	const int bitmapSize = 16;
 
-    const DWORD buttonStyles = BTNS_AUTOSIZE;
+	const DWORD buttonStyles = BTNS_AUTOSIZE;
 
-    // Create the toolbar.
-    HWND hWndToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL,
-        WS_CHILD | TBSTYLE_WRAPABLE,
-        0, 0, 0, 0,
-        hWndParent, NULL, hInst, NULL);
+	// Create the toolbar.
+	HWND hWndToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL,
+		WS_CHILD | TBSTYLE_WRAPABLE,
+		0, 0, 0, 0,
+		hWndParent, NULL, hInst, NULL);
 
-    if (hWndToolbar == NULL)
-        return NULL;
+	if (hWndToolbar == NULL)
+		return NULL;
 
-    // Create the image list.
-    g_hImageList = ImageList_Create(bitmapSize, bitmapSize,   // Dimensions of individual bitmaps.
-        ILC_COLOR16 | ILC_MASK,   // Ensures transparent background.
-        numButtons, 0);
+	// Create the image list.
+	g_hImageList = ImageList_Create(bitmapSize, bitmapSize,   // Dimensions of individual bitmaps.
+		ILC_COLOR16 | ILC_MASK,   // Ensures transparent background.
+		numButtons, 0);
 
-    // Set the image list.
-    SendMessage(hWndToolbar, TB_SETIMAGELIST,
-        (WPARAM)ImageListID,
-        (LPARAM)g_hImageList);
+	// Set the image list.
+	SendMessage(hWndToolbar, TB_SETIMAGELIST,
+		(WPARAM)ImageListID,
+		(LPARAM)g_hImageList);
 
-    // Load the button images.
-    SendMessage(hWndToolbar, TB_LOADIMAGES,
-        (WPARAM)IDB_STD_SMALL_COLOR,
-        (LPARAM)HINST_COMMCTRL);
+	// Load the button images.
+	SendMessage(hWndToolbar, TB_LOADIMAGES,
+		(WPARAM)IDB_STD_SMALL_COLOR,
+		(LPARAM)HINST_COMMCTRL);
 
-    // Initialize button info.
-    // IDM_NEW, IDM_OPEN, and IDM_SAVE are application-defined command constants.
+	// Initialize button info.
+	// IDM_NEW, IDM_OPEN, and IDM_SAVE are application-defined command constants.
 
-    TBBUTTON tbButtons[numButtons] =
-    {
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,     TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
-        { MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER,TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
-        { MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
-        { MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,      TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Update" },
-    };
+	TBBUTTON tbButtons[numButtons] =
+	{
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,     TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
+		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER,TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
+		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,      TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Update" },
+	};
 
-    // Add buttons.
-    SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
-    SendMessage(hWndToolbar, TB_ADDBUTTONS, (WPARAM)numButtons, (LPARAM)&tbButtons);
+	// Add buttons.
+	SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
+	SendMessage(hWndToolbar, TB_ADDBUTTONS, (WPARAM)numButtons, (LPARAM)&tbButtons);
 
-    // Resize the toolbar, and then show it.
-    SendMessage(hWndToolbar, TB_AUTOSIZE, 0, 0);
-    ShowWindow(hWndToolbar, TRUE);
+	// Resize the toolbar, and then show it.
+	SendMessage(hWndToolbar, TB_AUTOSIZE, 0, 0);
+	ShowWindow(hWndToolbar, TRUE);
 
-    return hWndToolbar;
+	return hWndToolbar;
 }
 
 static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    UINT checked;
-    InitCommonControls();
+	UINT checked;
+	InitCommonControls();
 
-    CreateWindow(_T("STATIC"),
-        _T("Remote Address:"),
-        WS_VISIBLE | WS_CHILD,
-        5, 50,120,20,
-        hWnd,
-        (HMENU)IDC_LABEL_REMOTE,
-        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-   
-    CreateWindow(_T("STATIC"),
-        _T("VAD State:"),
-        WS_VISIBLE | WS_CHILD,
-        260, 50,70, 20,
-        hWnd,
-        (HMENU)IDC_LABEL_VAD_STATE,
-        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CreateWindow(_T("STATIC"),
+		_T("Remote Address:"),
+		WS_VISIBLE | WS_CHILD,
+		5, 50, 120, 20,
+		hWnd,
+		(HMENU)IDC_LABEL_REMOTE,
+		((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-    CreateWindow(_T("STATIC"),
-        _T("Unknown"),
-        WS_VISIBLE | WS_CHILD,
-        335, 50, 120, 20,
-        hWnd,
-        (HMENU)IDC_VAD_STATE_STATUS,
-        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CreateWindow(_T("STATIC"),
+		_T("VAD State:"),
+		WS_VISIBLE | WS_CHILD,
+		260, 50, 70, 20,
+		hWnd,
+		(HMENU)IDC_LABEL_VAD_STATE,
+		((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-    CreateWindowExA(WS_EX_CLIENTEDGE,
-        "EDIT", RemoteAddress,
-        WS_CHILD | WS_VISIBLE,
-        130, 50, 120, 20,
-        hWnd,
-        (HMENU)IDC_EDIT_REMOTE,
-        ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CreateWindow(_T("STATIC"),
+		_T("Unknown"),
+		WS_VISIBLE | WS_CHILD,
+		335, 50, 120, 20,
+		hWnd,
+		(HMENU)IDC_VAD_STATE_STATUS,
+		((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-    if (Loopback)  checked = BST_CHECKED;
-    else checked = BST_UNCHECKED;
+	CreateWindowExA(WS_EX_CLIENTEDGE,
+		"EDIT", RemoteAddress,
+		WS_CHILD | WS_VISIBLE,
+		130, 50, 120, 20,
+		hWnd,
+		(HMENU)IDC_EDIT_REMOTE,
+		((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-    CreateWindow(_T("button"), _T("Loopback"),
-        WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
-        5, 75, 85, 20,
-        hWnd, (HMENU)IDC_CHECKBOX_LOOPBACK, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-    CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, checked);
+	if (Loopback)  checked = BST_CHECKED;
+	else checked = BST_UNCHECKED;
 
-    if (VoipAttr.AecOn)  checked = BST_CHECKED;
-    else checked = BST_UNCHECKED;
+	CreateWindow(_T("button"), _T("Loopback"),
+		WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+		5, 75, 85, 20,
+		hWnd, (HMENU)IDC_CHECKBOX_LOOPBACK, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CheckDlgButton(hWnd, IDC_CHECKBOX_LOOPBACK, checked);
 
-    CreateWindow(_T("button"), _T("AEC"),
-        WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
-        95, 75, 50, 20,
-        hWnd, (HMENU)IDC_CHECKBOX_AEC, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-    CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, checked);
+	if (VoipAttr.AecOn)  checked = BST_CHECKED;
+	else checked = BST_UNCHECKED;
 
-    if (VoipAttr.NoiseSuppressionOn)  checked = BST_CHECKED;
-    else checked = BST_UNCHECKED;
+	CreateWindow(_T("button"), _T("AEC"),
+		WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+		95, 75, 50, 20,
+		hWnd, (HMENU)IDC_CHECKBOX_AEC, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CheckDlgButton(hWnd, IDC_CHECKBOX_AEC, checked);
 
-    CreateWindow(_T("button"), _T("Noise Suppression"),
-        WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
-        150, 75, 145, 20,
-        hWnd, (HMENU)IDC_CHECKBOX_NS, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-    CheckDlgButton(hWnd, IDC_CHECKBOX_NS, checked);
+	if (VoipAttr.NoiseSuppressionOn)  checked = BST_CHECKED;
+	else checked = BST_UNCHECKED;
 
-    hWndEdit = CreateWindow(_T("edit"), NULL,
-        WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
-        0, 0, 0, 0, hWnd, (HMENU)IDC_EDIT, hInst, NULL);
+	CreateWindow(_T("button"), _T("Noise Suppression"),
+		WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+		150, 75, 145, 20,
+		hWnd, (HMENU)IDC_CHECKBOX_NS, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	CheckDlgButton(hWnd, IDC_CHECKBOX_NS, checked);
 
-    hWndMainToolbar = CreateSimpleToolbar(hWnd);
+	hWndEdit = CreateWindow(_T("edit"), NULL,
+		WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
+		0, 0, 0, 0, hWnd, (HMENU)IDC_EDIT, hInst, NULL);
 
-    hWndMain = hWnd;
-    InitializeImageDisplay(hWndMain);
-    return 1;
+	hWndMainToolbar = CreateSimpleToolbar(hWnd);
+
+	hWndMain = hWnd;
+	InitializeImageDisplay(hWndMain);
+	return 1;
 }
 
 LRESULT OnSize(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    int cxClient, cyClient;
+	int cxClient, cyClient;
 
-    cxClient = LOWORD(lParam);
-    cyClient = HIWORD(lParam);
+	cxClient = LOWORD(lParam);
+	cyClient = HIWORD(lParam);
 
-    MoveWindow(hWndEdit, 5, cyClient - 130, cxClient - 10, 120, TRUE);
+	MoveWindow(hWndEdit, 5, cyClient - 130, cxClient - 10, 120, TRUE);
 
-    return DefWindowProc(hWnd, message, wParam, lParam);
+	return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    CStringW cstring(RemoteAddress);
+	CStringW cstring(RemoteAddress);
 
-    PRINT(_T("Remote Address : %s Loopback %s\r\n"), cstring, Loopback ? _T("True"): _T("False"));
- 
-    if (!IsVideoClientRunning())
-    {
-        if (OpenCamera())
-        {
-            if (ConnectToSever(RemoteAddress, VIDEO_PORT))
-            {
+	PRINT(_T("Remote Address : %s Loopback %s\r\n"), cstring, Loopback ? _T("True") : _T("False"));
+
+	if (!IsVideoClientRunning())
+	{
+		if (OpenCamera())
+		{
+			if (ConnectToSever(RemoteAddress, VIDEO_PORT))
+			{
                 BOOST_LOG_TRIVIAL(info) << "Connected to Server";
-                StartVideoClient();
+				StartVideoClient();
                 BOOST_LOG_TRIVIAL(info) << "Video Client Started..";
-                VoipVoiceStart(RemoteAddress, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
+				VoipVoiceStart(RemoteAddress, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
                 BOOST_LOG_TRIVIAL(info) << "Voip Voice Started..";
 
                 SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
                 BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
-
-                return 1;
-            }
-            else
-            {
-                DisplayMessageOkBox("Connection Failed!");
-                return 0;
-            }
-                
-        }
-        else 
-          {
+				return 1;
+			}
+			else
+			{
+				DisplayMessageOkBox("Connection Failed!");
+				return 0;
+			}
+		}
+		else
+		{
             BOOST_LOG_TRIVIAL(error) << "Open Camera Failed";
-            return 0;
-          }
-    }
-    return 0;
+			return 0;
+		}
+	}
+	return 0;
 }
+
 static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    VoipVoiceStop();
-    if (IsVideoClientRunning())
-    {
-        StopVideoClient();
-        CloseCamera();
+	if (IsVideoClientRunning())
+	{
+		VoipVoiceStop();
+		StopVideoClient();
+		CloseCamera();
         BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
-
-        SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		
+		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
-    }
-    return 1;
+	}
+	else if (IsVideoServerRunning())
+	{
+		ClosedConnection();
+		std::cout << "ClosedConnection" << std::endl;
+	}
+	return 1;
 }
 
 static int PRINT(const TCHAR* fmt, ...)
 {
-    va_list argptr;
-    TCHAR buffer[2048];
-    int cnt;
+	va_list argptr;
+	TCHAR buffer[2048];
+	int cnt;
 
-    int iEditTextLength;
-    HWND hWnd = hWndEdit;
+	int iEditTextLength;
+	HWND hWnd = hWndEdit;
 
-    if (NULL == hWnd) return 0;
+	if (NULL == hWnd) return 0;
 
-    va_start(argptr, fmt);
+	va_start(argptr, fmt);
 
-    cnt = wvsprintf(buffer, fmt, argptr);
+	cnt = wvsprintf(buffer, fmt, argptr);
 
-    va_end(argptr);
+	va_end(argptr);
 
-    iEditTextLength = GetWindowTextLength(hWnd);
-    if (iEditTextLength + cnt > 30000)       // edit text max length is 30000
-    {
-        SendMessage(hWnd, EM_SETSEL, 0, 10000);
-        SendMessage(hWnd, WM_CLEAR, 0, 0);
-        PostMessage(hWnd, EM_SETSEL, 0, 10000);
-        iEditTextLength = iEditTextLength - 10000;
-    }
-    SendMessage(hWnd, EM_SETSEL, iEditTextLength, iEditTextLength);
-    SendMessage(hWnd, EM_REPLACESEL, 0, (LPARAM)buffer);
-    return(cnt);
+	iEditTextLength = GetWindowTextLength(hWnd);
+	if (iEditTextLength + cnt > 30000)       // edit text max length is 30000
+	{
+		SendMessage(hWnd, EM_SETSEL, 0, 10000);
+		SendMessage(hWnd, WM_CLEAR, 0, 0);
+		PostMessage(hWnd, EM_SETSEL, 0, 10000);
+		iEditTextLength = iEditTextLength - 10000;
+	}
+	SendMessage(hWnd, EM_SETSEL, iEditTextLength, iEditTextLength);
+	SendMessage(hWnd, EM_REPLACESEL, 0, (LPARAM)buffer);
+	return(cnt);
 }
+
 static int OnStartServer(HWND, UINT, WPARAM, LPARAM)
 {
-    StartVideoServer(Loopback);
-    
-    return 0;
+	StartVideoServer(Loopback);
+	return 0;
 }
+
 static int OnStopServer(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    StopVideoServer();
-    return 0;
+	StopVideoServer();
+	return 0;
 }
+
 static void DisplayMessageOkBox(const char* Msg)
 {
-    int msgboxID = MessageBoxA(
-        NULL,
-        Msg,
-        "Information",
-        MB_OK
-    );
+	int msgboxID = MessageBoxA(
+		NULL,
+		Msg,
+		"Information",
+		MB_OK
+	);
 
-    switch (msgboxID)
-    {
-    case IDCANCEL:
-        // TODO: add code
-        break;
-    case IDTRYAGAIN:
-        // TODO: add code
-        break;
-    case IDCONTINUE:
-        // TODO: add code
-        break;
-    }
+	switch (msgboxID)
+	{
+	case IDCANCEL:
+		// TODO: add code
+		break;
+	case IDTRYAGAIN:
+		// TODO: add code
+		break;
+	case IDCONTINUE:
+		// TODO: add code
+		break;
+	}
 
 }
+
 static bool OnlyOneInstance(void)
 {
-    HANDLE m_singleInstanceMutex = CreateMutex(NULL, TRUE, L"F2CBD5DE-2AEE-4BDA-8C56-D508CFD3F4DE");
-    if (m_singleInstanceMutex == NULL || GetLastError() == ERROR_ALREADY_EXISTS) 
-    {
-        HWND existingApp = FindWindow(0, szTitle);
-        if (existingApp)
-        {
-            ShowWindow(existingApp, SW_NORMAL);
-            SetForegroundWindow(existingApp);
-        }
-        return false; 
-    }
-    return true;
+	HANDLE m_singleInstanceMutex = CreateMutex(NULL, TRUE, L"F2CBD5DE-2AEE-4BDA-8C56-D508CFD3F4DE");
+	if (m_singleInstanceMutex == NULL || GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		HWND existingApp = FindWindow(0, szTitle);
+		if (existingApp)
+		{
+			ShowWindow(existingApp, SW_NORMAL);
+			SetForegroundWindow(existingApp);
+		}
+		return false;
+	}
+	return true;
 }
-
 //-----------------------------------------------------------------
 // END of File
 //-----------------------------------------------------------------
