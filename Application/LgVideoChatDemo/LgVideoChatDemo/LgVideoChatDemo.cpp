@@ -22,6 +22,11 @@
 #include "Login.h"
 #include "Join.h"
 #include "Update.h"
+#include "ContactList.h"
+#include "CallHistory.h"
+#include "CallStatus.h"
+
+#include "eWID.h"
 
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
@@ -34,35 +39,21 @@
 
 #define MAX_LOADSTRING 100
 
-#define IDC_LABEL_REMOTE       1010
-#define IDC_EDIT_REMOTE        1011
-#define IDC_CHECKBOX_LOOPBACK  1012 
-#define IDC_EDIT               1013 
-#define IDM_CONNECT            1014
-#define IDM_DISCONNECT         1015
-#define IDM_START_SERVER       1016
-#define IDM_STOP_SERVER        1017
-#define IDM_LOGIN			   1018
-#define IDM_JOIN			   1019
-#define IDM_UPDATE			   1024
-#define IDC_LABEL_VAD_STATE    1020
-#define IDC_VAD_STATE_STATUS   1021
-#define IDC_CHECKBOX_AEC       1022 
-#define IDC_CHECKBOX_NS        1023
 // Global Variables:
 
-HWND hWndMain;
+HWND hWndMain, hCamWnd;
+
 GUID InstanceGuid;
 char guidBuf[1024];
 char LocalIpAddress[512] = "127.0.0.1";
-TVoipAttr VoipAttr = {true,false};
+TVoipAttr VoipAttr = { true,false };
 
 static HINSTANCE hInst;                                // current instance
 static WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 static WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 
-static char RemoteAddress[512]="127.0.0.1";
-static bool Loopback=false;
+static char RemoteAddress[512] = "127.0.0.1";
+static bool Loopback = false;
 
 static FILE* pCout = NULL;
 static HWND hWndMainToolbar;
@@ -87,59 +78,59 @@ static void DisplayMessageOkBox(const char* Msg);
 static bool OnlyOneInstance(void);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+	_In_opt_ HINSTANCE hPrevInstance,
+	_In_ LPWSTR    lpCmdLine,
+	_In_ int       nCmdShow)
 {
-    UNREFERENCED_PARAMETER(hPrevInstance);
-    UNREFERENCED_PARAMETER(lpCmdLine);
-    WSADATA wsaData;
-    HRESULT hr;
+	UNREFERENCED_PARAMETER(hPrevInstance);
+	UNREFERENCED_PARAMETER(lpCmdLine);
+	WSADATA wsaData;
+	HRESULT hr;
 
-    SetStdOutToNewConsole();
-    InitLogging();
+	SetStdOutToNewConsole();
+	InitLogging();
 
-    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (res != NO_ERROR) {
-        BOOST_LOG_TRIVIAL(error) << "WSAStartup failed with error ";
-        return 1;
-    }
-    SetHostAddr();
-    hr = CoCreateGuid(&InstanceGuid);
-    if (hr != S_OK)
-    {
-        BOOST_LOG_TRIVIAL(error) << "GUID Create Failure ";
-        return 1;
-    }
+	int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (res != NO_ERROR) {
+		BOOST_LOG_TRIVIAL(error) << "WSAStartup failed with error ";
+		return 1;
+	}
+	SetHostAddr();
+	hr = CoCreateGuid(&InstanceGuid);
+	if (hr != S_OK)
+	{
+		BOOST_LOG_TRIVIAL(error) << "GUID Create Failure ";
+		return 1;
+	}
 
-    snprintf(guidBuf, sizeof(guidBuf), "Guid = {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX}",
-        InstanceGuid.Data1, InstanceGuid.Data2, InstanceGuid.Data3,
-        InstanceGuid.Data4[0], InstanceGuid.Data4[1], InstanceGuid.Data4[2], InstanceGuid.Data4[3],
-        InstanceGuid.Data4[4], InstanceGuid.Data4[5], InstanceGuid.Data4[6], InstanceGuid.Data4[7]);
-    BOOST_LOG_TRIVIAL(info) << guidBuf;
+	snprintf(guidBuf, sizeof(guidBuf), "Guid = {%08lX-%04hX-%04hX-%02hhX%02hhX-%02hhX%02hhX%02hhX%02hhX%02hhX%02hhX}",
+		InstanceGuid.Data1, InstanceGuid.Data2, InstanceGuid.Data3,
+		InstanceGuid.Data4[0], InstanceGuid.Data4[1], InstanceGuid.Data4[2], InstanceGuid.Data4[3],
+		InstanceGuid.Data4[4], InstanceGuid.Data4[5], InstanceGuid.Data4[6], InstanceGuid.Data4[7]);
+	BOOST_LOG_TRIVIAL(info) << guidBuf;
 
-    // Initialize global strings
-    LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_LGVIDEOCHATDEMO, szWindowClass, MAX_LOADSTRING);
+	// Initialize global strings
+	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+	LoadStringW(hInstance, IDC_LGVIDEOCHATDEMO, szWindowClass, MAX_LOADSTRING);
 
-    if (!OnlyOneInstance())
-    {
-        BOOST_LOG_TRIVIAL(info) << "Another Instance Running ";
-        return 1;
-    }
+	if (!OnlyOneInstance())
+	{
+		BOOST_LOG_TRIVIAL(info) << "Another Instance Running ";
+		return 1;
+	}
 
-    MyRegisterClass(hInstance);
+	MyRegisterClass(hInstance);
 
-    // Perform application initialization:
-    if (!InitInstance (hInstance, nCmdShow))
-    {
-        WSACleanup();
-        return FALSE;
-    }
+	// Perform application initialization:
+	if (!InitInstance(hInstance, nCmdShow))
+	{
+		WSACleanup();
+		return FALSE;
+	}
 
-    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LGVIDEOCHATDEMO));
+	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_LGVIDEOCHATDEMO));
 
-    MSG msg;
+	MSG msg;
 
 	// Main message loop:
 	while (GetMessage(&msg, nullptr, 0, 0))
@@ -237,7 +228,9 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance; // Store instance handle in our global variable
 
-	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW
+		& ~WS_THICKFRAME     /* disable window resize*/
+		& ~WS_MAXIMIZEBOX,   /* remove window maximizebox*/
 		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
 	if (!hWnd)
@@ -264,10 +257,15 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	INT_PTR result_login;
+
 	switch (message)
 	{
+	
 	case WM_COMMAND:
 	{
+		if (HIWORD(wParam) == LBN_SELCHANGE) // ListBox Select
+			DoubleClickContactListEventHandler(hWnd, message, wParam, lParam);
+
 		int wmId = LOWORD(wParam);
 		// Parse the menu selections:
 		switch (wmId)
@@ -415,7 +413,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		PostQuitMessage(0);
 		break;
 	case WM_CLIENT_LOST:
-        BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
+		BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
 		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
 		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
 		break;
@@ -556,6 +554,7 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UINT checked;
+	
 	InitCommonControls();
 
 	CreateWindow(_T("STATIC"),
@@ -584,7 +583,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	CreateWindowExA(WS_EX_CLIENTEDGE,
 		"EDIT", RemoteAddress,
-		WS_CHILD | WS_VISIBLE,
+		WS_CHILD | WS_VISIBLE ,// | WS_DISABLED,
 		130, 50, 120, 20,
 		hWnd,
 		(HMENU)IDC_EDIT_REMOTE,
@@ -621,10 +620,30 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
 		0, 0, 0, 0, hWnd, (HMENU)IDC_EDIT, hInst, NULL);
 
+	// 첫 번째 서브 윈도우 생성
+	CreateWindow(_T("STATIC"),
+		_T("Cam"),
+		WS_VISIBLE | WS_CHILD,
+		5, 100, 900, 20,
+		hWnd, NULL, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	hCamWnd = CreateWindow(_T("STATIC"), NULL,
+		WS_VISIBLE | WS_CHILD,
+		5, 120, 900, 350,
+		hWnd, NULL, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
+	
+	// 두 번째 서브 윈도우 생성 ListBox
+	CreateContactListWindow(hWnd, message, wParam, lParam, { 910, 100, 450, 300 });
+	
+	// 세 번째 서브 윈도우 생성 EditBox Call History
+	CreateCallHistoryWindow(hWnd, message, wParam, lParam, { 5, 475, 900, 115 });
+	
+	// 네 번째 서브 윈도우 생성 EditBox Call Status
+	CreateCallStatusWindow(hWnd, message, wParam, lParam, { 910, 400, 450, 190, });
+
 	hWndMainToolbar = CreateSimpleToolbar(hWnd);
 
 	hWndMain = hWnd;
-	InitializeImageDisplay(hWndMain);
+	InitializeImageDisplay(hCamWnd);
 	return 1;
 }
 
@@ -652,14 +671,14 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			if (ConnectToSever(RemoteAddress, VIDEO_PORT))
 			{
-                BOOST_LOG_TRIVIAL(info) << "Connected to Server";
+				BOOST_LOG_TRIVIAL(info) << "Connected to Server";
 				StartVideoClient();
-                BOOST_LOG_TRIVIAL(info) << "Video Client Started..";
+				BOOST_LOG_TRIVIAL(info) << "Video Client Started..";
 				VoipVoiceStart(RemoteAddress, VOIP_LOCAL_PORT, VOIP_REMOTE_PORT, VoipAttr);
-                BOOST_LOG_TRIVIAL(info) << "Voip Voice Started..";
+				BOOST_LOG_TRIVIAL(info) << "Voip Voice Started..";
 
-                SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-                BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
+				SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+				BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
 				return 1;
 			}
 			else
@@ -670,7 +689,7 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		else
 		{
-            BOOST_LOG_TRIVIAL(error) << "Open Camera Failed";
+			BOOST_LOG_TRIVIAL(error) << "Open Camera Failed";
 			return 0;
 		}
 	}
@@ -684,17 +703,16 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		VoipVoiceStop();
 		StopVideoClient();
 		CloseCamera();
-		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
-        BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
+		BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
+
+		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 	}
 	else if (IsVideoServerRunning())
 	{
 		ClosedConnection();
-		BOOST_LOG_TRIVIAL(info) << "ClosedConnection";
+		std::cout << "ClosedConnection" << std::endl;
 	}
-
-	SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-	BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 	return 1;
 }
 

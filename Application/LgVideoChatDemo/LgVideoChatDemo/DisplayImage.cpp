@@ -46,6 +46,7 @@ bool InitializeImageDisplay(HWND hWndMain)
 }
 bool DispayImage(cv::Mat & ImageIn)
 {
+    const LONG offset = 10;
  GetClientRect(hWindowMain, &rt);
  if (!ImageIn.empty())
    {
@@ -55,7 +56,8 @@ bool DispayImage(cv::Mat & ImageIn)
         SetupBitMapInfoSet = true;
        }
      StretchDIBits(hdc,
-        rt.left + 5, rt.top + 100, (rt.right - rt.left) / 2, (rt.bottom - rt.top) / 2,
+        //rt.left + 5, rt.top + 100, (rt.right - rt.left) /2, (rt.bottom - rt.top) / 2,
+         rt.left + offset, rt.top - offset, rt.right - 2*offset, rt.bottom,
         0, 0, BitmapInfo.bmiHeader.biWidth, BitmapInfo.bmiHeader.biHeight,
         ImageIn.data, &BitmapInfo, DIB_RGB_COLORS, SRCCOPY);  //DIB_RGB_COLORS
      return true;
