@@ -1,9 +1,36 @@
 #include "Update.h"
 
-std::string currentPassword = "test1234";
-
 extern std::string loginToken;
 extern std::string accessToken;
+std::string newEmail = "";
+bool checkDuplicateEmail = false;
+
+// The GetEditText function retrieves the text from a specified window control
+std::string GetEditText(HWND hEdit)
+{
+    int length = GetWindowTextLength(hEdit);
+    if (length > 0)
+    {
+        std::vector<char> buffer(length + 1);
+        GetWindowTextA(hEdit, buffer.data(), length + 1);
+        return buffer.data();
+    }
+    return "";
+}
+
+// The getControlText function retrieves the text from a specified window control.
+bool getControlText(HWND hDlg, int controlID, std::string& text)
+{
+    HWND hControl = GetDlgItem(hDlg, controlID);
+    text = GetEditText(hControl);
+
+    if (text.empty())
+    {
+        return false;
+    }
+
+    return true;
+}
 
 // Function to check if the given email is valid
 bool isValidEmail(const std::string& email) {
@@ -14,9 +41,13 @@ bool isValidEmail(const std::string& email) {
 
 // Function to check if the given email is a duplicate
 bool isDuplicateEmail(const std::string& email) {
+    checkDuplicateEmail = false;
     unsigned int rc = 0;
-    rc = backendCheckEmail(email);
-    if (rc == 403) {
+
+    std::string api = "/api/check-email/";
+    std::string data = "email=" + email;
+    rc = sendPostRequest(api, data, "");
+    if (rc == 403 || rc == 400) {
         return true;
     }
     return false;
@@ -24,87 +55,204 @@ bool isDuplicateEmail(const std::string& email) {
 
 // Function to perform email validation and duplicate check
 bool checkEmail(HWND hDlg) {
-    HWND hEmailEdit = GetDlgItem(hDlg, IDC_UPDATE_E_NEW_EMAIL);
-    int newEmailLength = GetWindowTextLength(hEmailEdit);
+    // Get new email text
     std::string email;
 
-    if (newEmailLength == 0) {
-        std::cout << "Email cannot be empty." << std::endl;
-        MessageBox(hDlg, TEXT("Email cannot be empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+    if (!getControlText(hDlg, IDC_UPDATE_E_NEW_EMAIL, email))
+    {
+        MessageBox(hDlg, TEXT("Please enter new email"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
-    }
-    else {
-        std::vector<char> buffer(newEmailLength + 1);
-        GetWindowTextA(hEmailEdit, buffer.data(), newEmailLength + 1);
-        email = buffer.data();
-        std::cout << "Email - " << email << std::endl;
     }
 
     if (!isValidEmail(email)) {
-        std::cout << "Invalid email format." << std::endl;
         MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     if (isDuplicateEmail(email)) {
-        std::cout << "Duplicate email found." << std::endl;
-        MessageBox(hDlg, TEXT("Duplicate email found"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        MessageBox(hDlg, TEXT("This email is unavailable (Duplicate)"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
+    }
+    else {
+        newEmail = email;
+        checkDuplicateEmail = true;
+        MessageBox(hDlg, TEXT("This email is available"), TEXT("Success"), MB_OK | MB_ICONINFORMATION);
     }
 
     return true;
 }
 
+// OTP 버튼 상태를 나타내는 변수
+bool updateOTPEnabled = true;
+
+// 카운트다운을 표시하는 함수
+void showCountdown(HWND hDlg)
+{
+    // 1분을 나타내는 초
+    int countdownSeconds = 3 * 60;
+
+    while (countdownSeconds >= 0)
+    {
+        // 분과 초 계산
+        int minutes = countdownSeconds / 60;
+        int seconds = countdownSeconds % 60;
+
+        // 텍스트 상자에 카운트다운 표시
+        std::wstring countdownText = std::to_wstring(minutes / 10) + std::to_wstring(minutes % 10) + L":" +
+            std::to_wstring(seconds / 10) + std::to_wstring(seconds % 10);
+        SetDlgItemTextW(hDlg, IDC_UPDATE_T_OTP_TIME, countdownText.c_str());
+
+        // 1초 대기
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        // 카운트다운 감소
+        countdownSeconds--;
+    }
+
+    // 카운트다운이 종료되면 OTP 버튼을 다시 활성화
+    updateOTPEnabled = true;
+    EnableWindow(GetDlgItem(hDlg, IDC_UPDATE_BUTTON_OTP), TRUE);
+
+    // IDC_LOGIN_E_OTP Edit 창의 핸들을 가져옴
+    HWND hEditOTP = GetDlgItem(hDlg, IDC_UPDATE_E_OTP);
+
+    // IDC_LOGIN_E_OTP Edit 창을 활성화
+    EnableWindow(hEditOTP, FALSE);
+
+}
+
+bool getOTP(HWND hDlg)
+{
+    unsigned int rc = 0;
+
+    std::string api = "/api/user/generate-otp";
+    std::string sessionToken = loginToken;
+    
+    rc = sendGetRequest(api, sessionToken);
+    if (rc == 200) {
+        // 업데이트가 성공하면 알림 창을 띄웁니다.
+        MessageBox(hDlg, TEXT("Please enter the OTP code that has been sent to your email"), TEXT("Get OTP"), MB_OK | MB_ICONINFORMATION);
+    }
+    else {
+        return false;
+    }
+
+    // OTP 버튼을 비활성화
+    updateOTPEnabled = false;
+    EnableWindow(GetDlgItem(hDlg, IDC_UPDATE_BUTTON_OTP), FALSE);
+
+    // IDC_LOGIN_E_OTP Edit 창의 핸들을 가져옴
+    HWND hEditOTP = GetDlgItem(hDlg, IDC_UPDATE_E_OTP);
+
+    // IDC_LOGIN_E_OTP Edit 창을 활성화
+    EnableWindow(hEditOTP, TRUE);
+
+    // 카운트다운 시작
+    std::thread countdownThread(showCountdown, hDlg);
+    countdownThread.detach();
+
+    return true;
+}
+
+bool validatePassword(const std::string& password)
+{
+    // Check if password length is at least 10 characters
+    if (password.length() < 10) {
+        return false;
+    }
+
+    // Check if password contains at least one digit
+    if (!std::regex_search(password, std::regex("\\d"))) {
+        return false;
+    }
+
+    // Check if password contains at least one special character
+    if (!std::regex_search(password, std::regex("[!@#$%^&*(),.?\":{}|<>]"))) {
+        return false;
+    }
+
+    // Password passed all validation checks
+    return true;
+}
 
 // Function to perform update logic
-bool PerformUpdate(HWND hDlg)
+bool performUpdate(HWND hDlg)
 {
+    bool changePassword = false;
+    bool changePEmail = false;
+
     // Get password text
-    HWND hPasswordEdit = GetDlgItem(hDlg, IDC_UPDATE_E_PW);
-    int passwordLength = GetWindowTextLength(hPasswordEdit);
     std::string password;
-    if (passwordLength > 0)
+    if (!getControlText(hDlg, IDC_UPDATE_E_PW, password))
     {
-        std::vector<char> buffer(passwordLength + 1);
-        GetWindowTextA(hPasswordEdit, buffer.data(), passwordLength + 1);
-        password = buffer.data();
+        MessageBox(hDlg, TEXT("Please enter your current password"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    else if (!validatePassword(password)) {
+        MessageBox(hDlg, TEXT("Password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
 
-    // Compare the entered password with loginPassword
-    if (password == currentPassword)
+    // Get new password text
+    std::string newPassword;
+    bool isPasswordEntered = getControlText(hDlg, IDC_UPDATE_E_NEW_PW, newPassword);
+
+    // Get confirmation password text
+    std::string confirmPassword;
+    bool isConfirmPasswordEntered = getControlText(hDlg, IDC_UPDATE_E_NEW_PW2, confirmPassword);
+
+    if (isPasswordEntered ^ isConfirmPasswordEntered)
     {
-        // Get new password text
-        HWND hNewPasswordEdit = GetDlgItem(hDlg, IDC_UPDATE_E_NEW_PW);
-        int newPasswordLength = GetWindowTextLength(hNewPasswordEdit);
-        std::string newPassword;
-        if (newPasswordLength > 0)
-        {
-            std::vector<char> buffer(newPasswordLength + 1);
-            GetWindowTextA(hNewPasswordEdit, buffer.data(), newPasswordLength + 1);
-            newPassword = buffer.data();
-        }
+        MessageBox(hDlg, TEXT("Please enter both new password and confirmation password"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
 
-        // Get confirmation password text
-        HWND hConfirmPasswordEdit = GetDlgItem(hDlg, IDC_UPDATE_E_NEW_PW2);
-        int confirmPasswordLength = GetWindowTextLength(hConfirmPasswordEdit);
-        std::string confirmPassword;
-        if (confirmPasswordLength > 0)
-        {
-            std::vector<char> buffer(confirmPasswordLength + 1);
-            GetWindowTextA(hConfirmPasswordEdit, buffer.data(), confirmPasswordLength + 1);
-            confirmPassword = buffer.data();
+    if (isPasswordEntered && isConfirmPasswordEntered)
+    {
+        if (!validatePassword(newPassword)) {
+            MessageBox(hDlg, TEXT("New password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+            return false;
         }
-
-        // Check if the new password and confirmation password match
-        if (newPassword == confirmPassword)
+        if (!validatePassword(confirmPassword)) {
+            MessageBox(hDlg, TEXT("Confirmation password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+            return false;
+        }
+        if (newPassword != confirmPassword)
         {
-            // Return true if the passwords match
-            return true;
+            MessageBox(hDlg, TEXT("New password and confirmation password do not match"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+            return false;
+        }
+        changePassword = true;
+    }
+
+    // Get new email text
+    std::string email;
+
+    if (!getControlText(hDlg, IDC_UPDATE_E_NEW_EMAIL, email))
+    {
+        if (!changePassword)
+        {
+            MessageBox(hDlg, TEXT("Please enter a new password or email"), TEXT("Error"), MB_OK | MB_ICONERROR);
+            return false;
+        }
+    }
+    else
+    {
+        // Check if the email is a duplicate
+        // Check if the email matches the newEmail
+        if (!checkDuplicateEmail || (email != newEmail))
+        {
+            checkDuplicateEmail = false;
+            newEmail = "";
+            MessageBox(hDlg, TEXT("Please click the [Duplicate Email] button"), TEXT("Error"), MB_OK | MB_ICONERROR);
+            return false;
         }
     }
 
-    // Return false if the entered password doesn't match or the new passwords don't match
-    return false;
+    // TODO 
+    // OTP CHECK & UPDATE
+    return true;
+
 }
 
 // Message handler for Login box.
@@ -120,7 +268,7 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         if (LOWORD(wParam) == IDOK)
         {
             // Perform update
-            if (PerformUpdate(hDlg))
+            if (performUpdate(hDlg))
             {
                 // 업데이트가 성공하면 알림 창을 띄웁니다.
                 MessageBox(hDlg, TEXT("Update successful!"), TEXT("Success"), MB_OK | MB_ICONINFORMATION);
@@ -131,7 +279,7 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             else
             {
                 // 입력이 유효하지 않거나 업데이트가 실패한 경우에 대한 처리
-                MessageBox(hDlg, TEXT("Invalid email, password, or OTP."), TEXT("Update Error"), MB_OK | MB_ICONERROR);
+                // MessageBox(hDlg, TEXT("Invalid email, password, or OTP."), TEXT("Update Error"), MB_OK | MB_ICONERROR);
             }
 
             return TRUE;
@@ -146,6 +294,13 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
             checkEmail(hDlg);
+
+            return TRUE;
+        }
+        else if (LOWORD(wParam) == IDC_UPDATE_BUTTON_OTP)
+        {
+            // IDC_UPDATE_BUTTON_OTP 버튼 클릭 시 getOTP 함수 호출
+            getOTP(hDlg);
 
             return TRUE;
         }
