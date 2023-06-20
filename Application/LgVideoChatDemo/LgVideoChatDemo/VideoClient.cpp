@@ -188,6 +188,7 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 		Client = INVALID_SOCKET;
 		SSL_free(SSLSocketForClient);
 		SSL_CTX_free(ctxForClient);
+		SSLClient = INVALID_SOCKET;
 		return false;
 	}
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_connect";
@@ -227,11 +228,11 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 {
 	BOOST_LOG_TRIVIAL(debug) << "Client: Start ThreadVideoClient";
 
-	HANDLE ghEvents[3];
+	HANDLE ghEvents[3]{};
 	int NumEvents;
 	int iResult;
 	DWORD dwEvent;
-	LARGE_INTEGER liDueTime;
+	LARGE_INTEGER liDueTime{};
 	InputMode Mode = ImageSize;
 	unsigned int InputBytesNeeded = sizeof(unsigned int);
 	unsigned int SizeofImage;

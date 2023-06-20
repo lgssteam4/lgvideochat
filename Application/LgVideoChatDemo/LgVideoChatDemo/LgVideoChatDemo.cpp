@@ -424,9 +424,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
 			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+
+		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
 		break;
 	case WM_REMOTE_LOST:
-		std::cout << "WM_REMOTE_LOST" << std::endl;
+		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_LOST";
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
 			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
@@ -681,16 +684,17 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		VoipVoiceStop();
 		StopVideoClient();
 		CloseCamera();
+		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
         BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
-		
-		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-        BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 	}
 	else if (IsVideoServerRunning())
 	{
 		ClosedConnection();
-		std::cout << "ClosedConnection" << std::endl;
+		BOOST_LOG_TRIVIAL(info) << "ClosedConnection";
 	}
+
+	SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 	return 1;
 }
 

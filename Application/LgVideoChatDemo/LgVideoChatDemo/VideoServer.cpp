@@ -102,7 +102,6 @@ static void VideoServerCleanup(void)
 		CloseHandle(hTimer);
 		hTimer = INVALID_HANDLE_VALUE;
 	}
-
 	if (Listen != INVALID_SOCKET)
 	{
 		closesocket(Listen);
@@ -254,7 +253,9 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							if (ctxForServer == NULL)
 							{
 								BOOST_LOG_TRIVIAL(error) << "Server: Error createSSLContextForServer";
-								break;
+								closesocket(Accept);
+								Accept = INVALID_SOCKET;
+								continue;
 							}
 							BOOST_LOG_TRIVIAL(debug) << "Server: Success createSSLContextForServer";
 
@@ -264,16 +265,34 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 							if (SSLSocketForServer == NULL)
 							{
 								BOOST_LOG_TRIVIAL(error) << "Server: Error createSSLSocket";
+								closesocket(Accept);
+								Accept = INVALID_SOCKET;
 								SSL_CTX_free(ctxForServer);
-								break;
+								continue;
 							}
 							SSLAccept = SSL_get_fd(SSLSocketForServer);
 							if (SSLAccept == INVALID_SOCKET)
 							{
 								BOOST_LOG_TRIVIAL(error) << "Server: Error SSL_get_fd";
+								closesocket(Accept);
+								Accept = INVALID_SOCKET;
 								SSL_free(SSLSocketForServer);
 								SSL_CTX_free(ctxForServer);
-								break;
+								continue;
+							}
+
+							// 클라이언트 연결 수락 or 거절
+							// Accept or decline client connections
+							int checkOK = MessageBox(hWndMain, L"Would you like to accept the phone call?", L"Video call is coming", MB_ICONQUESTION | MB_OKCANCEL);
+							if (checkOK != IDOK)
+							{
+								BOOST_LOG_TRIVIAL(info) << "Server: Rejected video call";
+								closesocket(Accept);
+								Accept = INVALID_SOCKET;
+								SSL_free(SSLSocketForServer);
+								SSL_CTX_free(ctxForServer);
+								SSLAccept = INVALID_SOCKET;
+								continue;
 							}
 
 							err = getnameinfo((struct sockaddr*)&sa, sa_len, RemoteIp, sizeof(RemoteIp), 0, 0, NI_NUMERICHOST);
@@ -297,13 +316,6 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 									BOOST_LOG_TRIVIAL(info) << "Loopback Over Ride";
 								}
 								else LoopbackOverRide = false;
-							}
-
-							int checkOK = MessageBox(hWndMain, L"Would you like to accept the phone call?", L"Video call is coming", MB_ICONQUESTION | MB_OKCANCEL);
-							if (checkOK != IDOK)
-							{
-								BOOST_LOG_TRIVIAL(info) << "Server: Rejected video call";
-								CleanUpClosedConnection();
 							}
 
 							// 연결 상태를 알리는 메시지 전송
@@ -371,7 +383,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 					closesocket(Listen);
 					Listen = INVALID_SOCKET;
-					//break;
+					break;
 				}
 			}
 		}
