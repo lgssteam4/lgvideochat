@@ -53,6 +53,41 @@ bool isDuplicateEmail(const std::string& email) {
     return false;
 }
 
+bool updatePasswordEmail(const std::string& password, const std::string& newPassword,
+    const std::string& confirmPassword, const std::string& email, const std::string& otp) {
+
+    unsigned int rc = 0;
+    std::string data;
+    std::string api = "/api/user/update/";
+    std::string sessionToken = loginToken;
+
+    // Append current password
+    if (!password.empty()) {
+        data += "current_password=" + password + "&";
+    }
+
+    // Append new password and confirmation password
+    if (!newPassword.empty() && !confirmPassword.empty()) {
+        data += "new_password=" + newPassword + "&";
+        data += "confirm_new_password=" + confirmPassword + "&";
+    }
+
+    // Append new email
+    if (!email.empty()) {
+        data += "new_email=" + email + "&";
+    }
+
+    // Append otp
+    data += "otp=" + otp;
+
+    rc = sendPostRequest(api, data, sessionToken);
+    if (rc == 200) {
+        return true;
+    }
+
+    return false;
+}
+
 // Function to perform email validation and duplicate check
 bool checkEmail(HWND hDlg) {
     // Get new email text
@@ -249,10 +284,36 @@ bool performUpdate(HWND hDlg)
         }
     }
 
-    // TODO 
-    // OTP CHECK & UPDATE
-    return true;
+    // Get otp
+    std::string otp;
+    if (!getControlText(hDlg, IDC_UPDATE_E_OTP, otp))
+    {
+        MessageBox(hDlg, TEXT("Please enter OTP"), TEXT("OTP Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
 
+    if (!updatePasswordEmail(password, newPassword, confirmPassword, email, otp))
+    {
+        MessageBox(hDlg, TEXT("You cannot update your password or email"), TEXT("Update Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    /*
+    if (!newPassword.empty() && email.empty())
+    {
+        // Update password only
+    }
+    else if (newPassword.empty() && !email.empty())
+    {
+        // Update email only
+    }
+    else if (!newPassword.empty() && !email.empty())
+    {
+        // Update password & email
+    }
+    */
+
+    return true;
 }
 
 // Message handler for Login box.
@@ -280,6 +341,7 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             {
                 // 입력이 유효하지 않거나 업데이트가 실패한 경우에 대한 처리
                 // MessageBox(hDlg, TEXT("Invalid email, password, or OTP."), TEXT("Update Error"), MB_OK | MB_ICONERROR);
+                return FALSE;
             }
 
             return TRUE;
