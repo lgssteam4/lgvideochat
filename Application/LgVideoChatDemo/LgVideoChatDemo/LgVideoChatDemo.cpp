@@ -231,7 +231,10 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW
 		& ~WS_THICKFRAME     /* disable window resize*/
 		& ~WS_MAXIMIZEBOX,   /* remove window maximizebox*/
-		CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+		CW_USEDEFAULT, 0,
+		//CW_USEDEFAULT, 0,
+		1380, 790,			/* set to fixed size */
+		nullptr, nullptr, hInstance, nullptr);
 
 	if (!hWnd)
 	{
