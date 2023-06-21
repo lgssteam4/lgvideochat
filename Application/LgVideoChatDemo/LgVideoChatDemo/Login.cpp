@@ -3,6 +3,8 @@
 #include <string>
 #include <iostream>
 
+std::string generatedOTP;
+
 std::string loginToken;
 std::string accessToken;
 
