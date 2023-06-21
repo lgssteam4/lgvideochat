@@ -109,3 +109,62 @@ bool getControlText(HWND hDlg, int controlID, std::string& text)
 
     return true;
 }
+
+// Function to display the countdown
+void ShowCountdown(HWND hDlg, unsigned int textBox)
+{
+    // Seconds representing 1 minute
+    int countdownSeconds = 1 * 60;
+
+    while (countdownSeconds >= 0)
+    {
+        // Calculating minutes and seconds
+        int minutes = countdownSeconds / 60;
+        int seconds = countdownSeconds % 60;
+
+        // Displaying the countdown in the text box
+        std::wstring countdownText = std::to_wstring(minutes / 10) + std::to_wstring(minutes % 10) + L":" +
+            std::to_wstring(seconds / 10) + std::to_wstring(seconds % 10);
+        SetDlgItemTextW(hDlg, textBox, countdownText.c_str());
+
+        // Waiting for 1 second
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        // Decreasing the countdown
+        countdownSeconds--;
+    }
+}
+
+// Function to get email text
+bool getEmailText(HWND hDlg, unsigned int textBox, std::string& email)
+{
+    if (!getControlText(hDlg, textBox, email))
+    {
+        BOOST_LOG_TRIVIAL(error) << "Email is empty";
+        MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    if (!isValidEmail(email)) {
+        BOOST_LOG_TRIVIAL(error) << "Invalid email format";
+        MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    return true;
+}
+
+// Function to get password text
+bool getPasswordText(HWND hDlg, unsigned int textBox, std::string& password)
+{
+    if (!getControlText(hDlg, textBox, password))
+    {
+        BOOST_LOG_TRIVIAL(error) << "Password is empty";
+        MessageBox(hDlg, TEXT("Password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    else if (!validatePassword(password)) {
+        BOOST_LOG_TRIVIAL(error) << "Password is invalid";
+        MessageBox(hDlg, TEXT("Password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    return true;
+}

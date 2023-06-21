@@ -25,6 +25,16 @@ std::string GetEditText(HWND hEdit);
 // The getControlText function retrieves the text from a specified window control.
 bool getControlText(HWND hDlg, int controlID, std::string& text);
 
+// Function to display the countdown
+void ShowCountdown(HWND hDlg, unsigned int textBox);
+
+// Function to get email text
+bool getEmailText(HWND hDlg, unsigned int textBox, std::string& email);
+
+// Function to get password text
+bool getPasswordText(HWND hDlg, unsigned int textBox, std::string& password);
+
+
 //-----------------------------------------------------------------
 // END of File
 //-----------------------------------------------------------------
