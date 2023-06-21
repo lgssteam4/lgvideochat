@@ -1,3 +1,5 @@
+#include "BoostLog.h"
+
 #include "framework.h"
 #include <Commctrl.h>
 #include <atlstr.h>
@@ -13,6 +15,7 @@
 #include <codecvt>
 #include "Join.h"
 #include "BackendHttpsClient.h"
+
 
 static char joinRemoteAddress[512] = "127.0.0.1";
 char joinLocalIpAddress[512] = "127.0.0.1";
@@ -53,7 +56,7 @@ static void SetHostAddr(void)
             {
                 strcpy_s(joinRemoteAddress, sizeof(joinRemoteAddress), _address);
                 strcpy_s(joinLocalIpAddress, sizeof(joinLocalIpAddress), _address);
-                std::cout << "RemoteAddress : " << joinRemoteAddress << "LocalIpAddress : " << joinLocalIpAddress << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "RemoteAddress : " << joinRemoteAddress << "LocalIpAddress : " << joinLocalIpAddress;
                 break;
             }
         }
@@ -102,7 +105,7 @@ bool checkEmailInJoin(HWND hDlg) {
     std::string email;
 
     if (newEmailLength == 0) {
-        std::cout << "Email cannot be empty." << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "Email cannot be empty.";
         MessageBox(hDlg, TEXT("Email cannot be empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -110,17 +113,17 @@ bool checkEmailInJoin(HWND hDlg) {
         std::vector<char> buffer(newEmailLength + 1);
         GetWindowTextA(hEmailEdit, buffer.data(), newEmailLength + 1);
         email = buffer.data();
-        std::cout << "Email - " << email << std::endl;
+        BOOST_LOG_TRIVIAL(info) << "Email - " << email;
     }
 
     if (!isValidEmailInJoin(email)) {
-        std::cout << "Invalid email format." << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "Invalid email format.";
         MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     if (isDuplicateEmailInJoin(email)) {
-        std::cout << "Duplicate email found." << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "Duplicate email found.";
         MessageBox(hDlg, TEXT("Duplicate email found"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -147,7 +150,7 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "password is empty" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "password is empty";
         MessageBox(hDlg, TEXT("Password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -163,7 +166,7 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "confirm password is empty" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "confirm password is empty";
         MessageBox(hDlg, TEXT("Confirm password is empty"), TEXT("Confirm password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -171,7 +174,7 @@ bool PerformJoin(HWND hDlg)
     // Compare the entered password with loginPassword
     if (password != cPassword)
     {
-        std::cout << "Password is not same" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "Password is not same";
         MessageBox(hDlg, TEXT("Password is not same"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -187,7 +190,7 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "email is empty" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "email is empty";
         MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -203,7 +206,7 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "first name is empty" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "first name is empty";
         MessageBox(hDlg, TEXT("First name is empty"), TEXT("First name Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -219,7 +222,7 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "last name is empty" << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "last name is empty";
         MessageBox(hDlg, TEXT("Last name is empty"), TEXT("Last name Error"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -235,14 +238,14 @@ bool PerformJoin(HWND hDlg)
     }
     else
     {
-        std::cout << "ip address is empty" << std::endl;
-        MessageBox(NULL, TEXT("IP address is empty"), TEXT("IP address Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "ip address is empty";
+        MessageBox(hDlg, TEXT("IP address is empty"), TEXT("IP address Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     // password, cpassword, email, fName, lName, addr
     std::string requestString = "email=" + email + "&password=" + password + "&confirm_password=" + cPassword + "&ip_address=" + addr + "&first_name=" + fName + "&last_name=" + lName;
-    std::cout << "requestString : " << requestString << std::endl;
+    //std::cout << "requestString : " << requestString << std::endl;
 
     unsigned int status_code;
     std::map<std::string, std::string> response;
@@ -250,22 +253,23 @@ bool PerformJoin(HWND hDlg)
 
     if (rc != 0 || status_code != 200)
     {
-        std::cout << "rc =" << rc << " status_code = " << status_code << std::endl;
+        BOOST_LOG_TRIVIAL(error) << "rc =" << rc << " status_code = " << status_code;
+        MessageBox(hDlg, TEXT("Error is occurred, Please check the input value"), TEXT("Error from server"), MB_OK | MB_ICONERROR);
         return false;
     }
 
-    std::cout << response["message"] << std::endl;
-    for (const auto& pair : response) {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
-    }
-
+    BOOST_LOG_TRIVIAL(info) << response["message"];
+//    for (const auto& pair : response) {
+//        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
+//    }
+    
     std::string successMessage = response["message"];
     removeQuotes(successMessage);
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     std::wstring wstr = converter.from_bytes(successMessage);
 
-    std::cout << "User created" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "User created successfully";
     MessageBox(hDlg, wstr.c_str(), TEXT("User created"), MB_OK);
 
     return true;
