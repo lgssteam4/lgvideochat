@@ -1,11 +1,17 @@
 #pragma once
 
+#include "BoostLog.h"
+#include "framework.h"
 #include <Windows.h>
 #include <string>
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <string>
+#include <iostream>
+#include "Common.h"
 #include "resource.h"
+#include "BackendHttpsClient.h"
 
 // Forward declarations of functions included in this code module:
 INT_PTR CALLBACK Login(HWND, UINT, WPARAM, LPARAM);

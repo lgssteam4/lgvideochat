@@ -372,6 +372,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		case IDM_LOGIN:
 			result_login = DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGINDIALOG), hWnd, Login);
 			if (result_login == IDOK) {
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_LOGIN,
+						(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_JOIN,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_UPDATE,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
 				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
 					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
 				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
@@ -534,13 +540,13 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
 	TBBUTTON tbButtons[numButtons] =
 	{
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,     TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
-		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER,TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
-		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,      TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Update" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_CONNECT,      TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Connect" },
+		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,   TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
+		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,         TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,       TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Update" },
 	};
 
 	// Add buttons.

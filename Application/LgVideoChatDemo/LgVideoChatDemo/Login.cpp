@@ -1,9 +1,4 @@
 #include "Login.h"
-#include "BackendHttpsClient.h"
-#include <string>
-#include <iostream>
-
-std::string generatedOTP;
 
 std::string loginToken;
 std::string accessToken;
@@ -40,24 +35,6 @@ void ShowCountdown(HWND hDlg)
     EnableWindow(GetDlgItem(hDlg, IDC_BUTTON_OTP), TRUE);
 
 }
-// OTP 생성 및 메일 발송 함수, 미사용. 서버에서 진행.
-void GenerateAndSendOTP(HWND hDlg)
-{
-    // 6자리 OTP 생성
-    srand(static_cast<unsigned int>(time(nullptr)));
-    int otp = rand() % 900000 + 100000;
-
-    // OTP를 문자열로 변환
-    generatedOTP = std::to_string(otp);
-
-    // 이메일 발송 코드 작성
-    // ...
-
-    // 발송 완료 메시지 박스
-    std::wstring message = L"OTP generated: " + std::wstring(generatedOTP.begin(), generatedOTP.end());
-    MessageBoxW(hDlg, message.c_str(), L"OTP Generated", MB_OK | MB_ICONINFORMATION);
-
-}
 
 void OnButtonOTPClick(HWND hDlg)
 {
@@ -74,37 +51,41 @@ bool PerformLogin(HWND hDlg)
     int rc = 0;
     unsigned int status_code;
     std::map<std::string, std::string> response;
+
     // Get email text
-    HWND hEmailEdit = GetDlgItem(hDlg, IDC_LOGIN_E_EMAIL);
-    int emailLength = GetWindowTextLength(hEmailEdit);
     std::string email;
-    if (emailLength > 0)
+    if (!getControlText(hDlg, IDC_LOGIN_E_EMAIL, email))
     {
-        std::vector<char> buffer(emailLength + 1);
-        GetWindowTextA(hEmailEdit, buffer.data(), emailLength + 1);
-        email = buffer.data();
+        BOOST_LOG_TRIVIAL(error) << "Email is empty";
+        MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    if (!isValidEmail(email)) {
+        BOOST_LOG_TRIVIAL(error) << "Invalid email format";
+        MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
 
     // Get password text
-    HWND hPasswordEdit = GetDlgItem(hDlg, IDC_LOGIN_E_PASSWORD);
-    int passwordLength = GetWindowTextLength(hPasswordEdit);
     std::string password;
-    if (passwordLength > 0)
+    if (!getControlText(hDlg, IDC_LOGIN_E_PASSWORD, password))
     {
-        std::vector<char> buffer(passwordLength + 1);
-        GetWindowTextA(hPasswordEdit, buffer.data(), passwordLength + 1);
-        password = buffer.data();
+        BOOST_LOG_TRIVIAL(error) << "Password is empty";
+        MessageBox(hDlg, TEXT("Password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    else if (!validatePassword(password)) {
+        BOOST_LOG_TRIVIAL(error) << "Password is invalid";
+        MessageBox(hDlg, TEXT("Password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
 
     // Get OTP text
-    HWND hOTPEdit = GetDlgItem(hDlg, IDC_LOGIN_E_OTP);
-    int otpLength = GetWindowTextLength(hOTPEdit);
     std::string input_otp;
-    if (otpLength > 0)
+    if (!getControlText(hDlg, IDC_LOGIN_E_OTP, input_otp))
     {
-        std::vector<char> buffer(otpLength + 1);
-        GetWindowTextA(hOTPEdit, buffer.data(), otpLength + 1);
-        input_otp = buffer.data();
+        MessageBox(hDlg, TEXT("Please enter OTP"), TEXT("OTP Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
 
     std::cout << "test_sch, login_token: " << loginToken << std::endl;
@@ -122,7 +103,6 @@ bool PerformLogin(HWND hDlg)
         {
             // 로그인이 성공하면 true를 반환합니다.
             accessToken = response["access_token"];
-            accessToken = accessToken.substr(1, loginToken.length() - 2);
             std::cout << "test_sch, access_token: " << accessToken << std::endl;
             std::cout << " tst_sch, login success" << std::endl;
             return true;
@@ -211,7 +191,6 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             if(status_code == 200)
             {
                 loginToken = response["login_token"];
-                loginToken = loginToken.substr(1, loginToken.length() - 2);
                 std::cout << "********** test_sch, loginToken: " << loginToken << std::endl;
 
                 // IDC_BUTTON_OTP 버튼 클릭 시 OnButtonOTPClick 함수 호출
@@ -230,7 +209,8 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             else
             {
                 std::cout << " email & pw not matched" << std::endl;
-                return FALSE; // email & pw not matched.
+                MessageBox(hDlg, TEXT("email & pw not matched"), TEXT("OTP Error"), MB_OK | MB_ICONERROR);
+                return FALSE;
             }
 
 

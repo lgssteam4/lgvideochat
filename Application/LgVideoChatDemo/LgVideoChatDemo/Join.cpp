@@ -1,24 +1,9 @@
-#include "BoostLog.h"
-
-#include "framework.h"
-#include <Commctrl.h>
-#include <atlstr.h>
-#include <iphlpapi.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <io.h>
-#include <fcntl.h>
-#include <iostream>
-#include <Windows.h>
-
-#include <string>
-#include <codecvt>
 #include "Join.h"
-#include "BackendHttpsClient.h"
-
 
 static char joinRemoteAddress[512] = "127.0.0.1";
 char joinLocalIpAddress[512] = "127.0.0.1";
+std::string joinEmail = "";
+bool checkDuplicateJoinEmail = false;
 
 bool startsWith(const std::string& str, const std::string& prefix) {
     if (str.length() < prefix.length()) {
@@ -63,24 +48,6 @@ static void SetHostAddr(void)
     }
 }
 
-
-// Function to check if the given email is a duplicate
-bool isDuplicateEmailInJoin(const std::string& email) {
-    unsigned int rc = 0;
-    rc = backendCheckEmail(email);
-    if (rc == 403) {
-        return true;
-    }
-    return false;
-}
-
-// Function to check if the given email is valid
-bool isValidEmailInJoin(const std::string& email) {
-    // Regular expression pattern for email validation
-    const std::regex pattern(R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
-    return std::regex_match(email, pattern);
-}
-
 void EnableEdit(HWND hDlg, BOOL bEnable)
 {
     HWND hEditPassOTP = GetDlgItem(hDlg, IDC_JOIN_E_PASSWORD);
@@ -98,100 +65,61 @@ void EnableEdit(HWND hDlg, BOOL bEnable)
 
 }
 
-// Function to perform email validation and duplicate check
-bool checkEmailInJoin(HWND hDlg) {
-    HWND hEmailEdit = GetDlgItem(hDlg, IDC_JOIN_E_EMAIL);
-    int newEmailLength = GetWindowTextLength(hEmailEdit);
-    std::string email;
-
-    if (newEmailLength == 0) {
-        BOOST_LOG_TRIVIAL(error) << "Email cannot be empty.";
-        MessageBox(hDlg, TEXT("Email cannot be empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
-        return false;
-    }
-    else {
-        std::vector<char> buffer(newEmailLength + 1);
-        GetWindowTextA(hEmailEdit, buffer.data(), newEmailLength + 1);
-        email = buffer.data();
-        BOOST_LOG_TRIVIAL(info) << "Email - " << email;
-    }
-
-    if (!isValidEmailInJoin(email)) {
-        BOOST_LOG_TRIVIAL(error) << "Invalid email format.";
-        MessageBox(hDlg, TEXT("Invalid email format"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    if (isDuplicateEmailInJoin(email)) {
-        BOOST_LOG_TRIVIAL(error) << "Duplicate email found.";
-        MessageBox(hDlg, TEXT("Duplicate email found"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    return true;
-}
-
-void removeQuotes(std::string& str) {
-    str.erase(std::remove(str.begin(), str.end(), '\"'), str.end());
-}
-
 // Function to perform join logic
 bool PerformJoin(HWND hDlg)
 {
-    // Get password text
-    HWND hPasswordEdit = GetDlgItem(hDlg, IDC_JOIN_E_PASSWORD);
-    int passwordLength = GetWindowTextLength(hPasswordEdit);
-    std::string password;
-    if (passwordLength > 0)
+    // Get email text
+    std::string email;
+    if (!getControlText(hDlg, IDC_JOIN_E_EMAIL, email))
     {
-        std::vector<char> buffer(passwordLength + 1);
-        GetWindowTextA(hPasswordEdit, buffer.data(), passwordLength + 1);
-        password = buffer.data();
+        BOOST_LOG_TRIVIAL(error) << "Email is empty";
+        MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
-    else
+
+    // Check if the email is a duplicate
+    // Check if the email matches the newEmail
+    if (!checkDuplicateJoinEmail || (email != joinEmail))
     {
-        BOOST_LOG_TRIVIAL(error) << "password is empty";
+        checkDuplicateJoinEmail = false;
+        joinEmail = "";
+        MessageBox(hDlg, TEXT("Please click the [Duplicate Check] button"), TEXT("Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // Get password text
+    std::string password;
+    if (!getControlText(hDlg, IDC_JOIN_E_PASSWORD, password))
+    {
+        BOOST_LOG_TRIVIAL(error) << "Password is empty";
         MessageBox(hDlg, TEXT("Password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
-    
-    HWND hCPasswordEdit = GetDlgItem(hDlg, IDC_JOIN_E_CONFIRMPASSWORD);
-    int cPasswordLength = GetWindowTextLength(hCPasswordEdit);
-    std::string cPassword;
-    if (cPasswordLength > 0)
-    {
-        std::vector<char> buffer(cPasswordLength + 1);
-        GetWindowTextA(hCPasswordEdit, buffer.data(), cPasswordLength + 1);
-        cPassword = buffer.data();
+    else if (!validatePassword(password)) {
+        BOOST_LOG_TRIVIAL(error) << "Password is invalid";
+        MessageBox(hDlg, TEXT("Password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
     }
-    else
+
+    // Get confirm password text
+    std::string cPassword;
+    if (!getControlText(hDlg, IDC_JOIN_E_CONFIRMPASSWORD, cPassword))
     {
-        BOOST_LOG_TRIVIAL(error) << "confirm password is empty";
-        MessageBox(hDlg, TEXT("Confirm password is empty"), TEXT("Confirm password Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "Confirm password is empty";
+        MessageBox(hDlg, TEXT("Confirm password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+    else if (!validatePassword(cPassword)) {
+        BOOST_LOG_TRIVIAL(error) << "Confirm password is invalid";
+        MessageBox(hDlg, TEXT("Confirm password is invalid"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     // Compare the entered password with loginPassword
     if (password != cPassword)
     {
-        BOOST_LOG_TRIVIAL(error) << "Password is not same";
-        MessageBox(hDlg, TEXT("Password is not same"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    HWND hEmailEdit = GetDlgItem(hDlg, IDC_JOIN_E_EMAIL);
-    int emailLength = GetWindowTextLength(hEmailEdit);
-    std::string email;
-    if (emailLength > 0)
-    {
-        std::vector<char> buffer(emailLength + 1);
-        GetWindowTextA(hEmailEdit, buffer.data(), emailLength + 1);
-        email = buffer.data();
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(error) << "email is empty";
-        MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "Password and confirmation password do not match";
+        MessageBox(hDlg, TEXT("Password and confirmation password do not match"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -245,7 +173,6 @@ bool PerformJoin(HWND hDlg)
 
     // password, cpassword, email, fName, lName, addr
     std::string requestString = "email=" + email + "&password=" + password + "&confirm_password=" + cPassword + "&ip_address=" + addr + "&first_name=" + fName + "&last_name=" + lName;
-    //std::cout << "requestString : " << requestString << std::endl;
 
     unsigned int status_code;
     std::map<std::string, std::string> response;
@@ -259,12 +186,8 @@ bool PerformJoin(HWND hDlg)
     }
 
     BOOST_LOG_TRIVIAL(info) << response["message"];
-//    for (const auto& pair : response) {
-//        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
-//    }
     
     std::string successMessage = response["message"];
-    removeQuotes(successMessage);
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     std::wstring wstr = converter.from_bytes(successMessage);
@@ -310,8 +233,11 @@ INT_PTR CALLBACK Join(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             SetHostAddr();
             // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
-            if (checkEmailInJoin(hDlg))
+            std::string email;
+            checkDuplicateJoinEmail = checkEmail(hDlg, IDC_JOIN_E_EMAIL, email);
+            if (checkDuplicateJoinEmail)
             {
+                joinEmail = email;
                 EnableEdit(hDlg, TRUE);
             }
             else

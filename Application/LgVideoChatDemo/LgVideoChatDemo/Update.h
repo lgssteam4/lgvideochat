@@ -1,12 +1,14 @@
 #pragma once
 
+#include "BoostLog.h"
+#include "framework.h"
 #include <Windows.h>
 #include <iostream>
 #include <string>
-#include <regex>
 #include <vector>
 #include <thread>
 #include <chrono>
+#include "Common.h"
 #include "resource.h"
 #include "BackendHttpsClient.h"
 

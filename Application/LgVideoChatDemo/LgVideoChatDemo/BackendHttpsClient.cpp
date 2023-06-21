@@ -265,6 +265,12 @@ private:
             for (auto it = json.begin(); it != json.end(); ++it) {
                 result[it.key()] = it.value().dump();
             }
+
+            // Remove ""
+            for (auto& pair : result) {
+                std::string& value = pair.second;
+                value.erase(std::remove(value.begin(), value.end(), '\"'), value.end());
+            }
         }
         catch (const std::exception& e) {
             std::cout << "Error parsing JSON: " << e.what() << std::endl;
@@ -446,29 +452,5 @@ unsigned int sendPostRequest(const std::string& function, const std::string& dat
         std::cout << pair.first << ": " << pair.second << std::endl;
     }
 
-    // Remove ""
-    for (auto& pair : response) {
-        std::string& value = pair.second;
-        value.erase(std::remove(value.begin(), value.end(), '\"'), value.end());
-    }
-
     return statusCode;
 }
-
-unsigned int backendCheckEmail(const std::string& email) {
-    int rc = 0;
-    unsigned int statusCode = 0;
-    std::map<std::string, std::string> response;
-
-    std::string data = "email=" + email;
-    rc = request("POST", "/api/user/check-email/", data, "", &statusCode, response);
-    std::cout << "POST : statusCode - " << statusCode << std::endl;
-    // 3rd param is session token
-
-    for (const auto& pair : response) {
-        std::cout << pair.first << ": " << pair.second << std::endl;
-    }
-
-    return statusCode;
-}
-
