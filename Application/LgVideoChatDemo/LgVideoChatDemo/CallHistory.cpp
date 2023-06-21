@@ -18,8 +18,6 @@ LRESULT CreateCallHistoryWindow(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
 		rt.left, rt.top + offset, rt.right, rt.bottom - offset,
 		hWnd, (HMENU)IDC_CALL_HISTORY, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-	
-	WriteToCallHistoryEditBox(_T("[Call History]"));
 
 	return 0;
 }

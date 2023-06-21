@@ -49,7 +49,6 @@ GUID InstanceGuid;
 char guidBuf[1024];
 char LocalIpAddress[512] = "127.0.0.1";
 char* ConnectedIP = nullptr;
-CStringW cstringConnectedIP;
 TVoipAttr VoipAttr = { true,false };
 
 static HINSTANCE hInst;                                // current instance
@@ -84,10 +83,9 @@ static bool OnlyOneInstance(void);
 // Get user information
 bool queryUserInfo(const std::string& remoteIp, std::map<std::string, std::string>& userInfo) {
 	unsigned int rc = 0;
-	//std::string data = "ip_address=" + remoteIp;
-	std::string data = "ip_address=10.177.249.171";
+	std::string data = "ip_address=" + remoteIp;
 	std::string api = "/api/user/get-info-from-ip/";
-	std::string sessionToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYWY4ZjE4ZTYtMTAwNy0xMWVlLTlkYmUtNjA0NWJkZGM5NGY3IiwiaWF0IjoxNjg3MzM4OTY2LCJleHAiOjE2ODc0MjUzNjZ9.o0X5iGVprP28iSvOPQLbxxh4vWTffMwaGr5Dq61TK8U";
+	std::string sessionToken = accessToken;
 
 	rc = sendPostRequest(api, data, sessionToken, userInfo);
 	if (rc == 200) {
@@ -100,89 +98,92 @@ bool queryUserInfo(const std::string& remoteIp, std::map<std::string, std::strin
 // Update call status
 void updateCallStatus(const char* remoteIP)
 {
-	BOOST_LOG_TRIVIAL(debug) << "@@@ Start updateCallStatus : " << remoteIP;
+	BOOST_LOG_TRIVIAL(debug) << "Start updateCallStatus: " << remoteIP;
 	std::map<std::string, std::string> response;
-	std::string email;
-	std::string first_name;
-	std::string last_name;
-	std::string ip_address;
+	std::string email, first_name, last_name, ip_address;
+	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address;
 
 	if (queryUserInfo(remoteIP, response))
 	{
-		for (const auto& pair : response) {
-			BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
-		}
+		//for (const auto& pair : response) {
+		//	BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
+		//}
 		email = response["email"];
 		first_name = response["first_name"];
 		last_name = response["last_name"];
 		ip_address = response["ip_address"];
+		cstr_email = email.c_str();
+		cstr_first_name = first_name.c_str();
+		cstr_last_name = last_name.c_str();
+		cstr_ip_address = ip_address.c_str();
 
-		WriteToCallStatusEditBox(_T("[Calling...]\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s"),
-			email, first_name, last_name, ip_address);
+		WriteToCallStatusEditBox(_T("[Calling...]\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s"),
+			cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 	}
 	else
 	{
-		WriteToCallStatusEditBox(_T("[Calling...]\r\nThe other party's information could not be found on the server"));
+		WriteToCallStatusEditBox(_T("[Calling...]\r\nNo user information"));
 	}
-	BOOST_LOG_TRIVIAL(debug) << "@@@ End updateCallStatus";
+	BOOST_LOG_TRIVIAL(debug) << "End updateCallStatus";
 }
 
 // Update call history
 void updateCallHistory(const char* remoteIP, bool calling)
 {
-	BOOST_LOG_TRIVIAL(debug) << "@@@ Start updateCallHistory : " << remoteIP;
+	BOOST_LOG_TRIVIAL(debug) << "Start updateCallHistory: " << remoteIP << " calling: " << calling;
 	std::map<std::string, std::string> response;
+	std::string email, first_name, last_name, ip_address;
+	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address, cstr_time, cstr_ip;
 	std::time_t now = std::time(nullptr);
 	std::tm current_time{};
-	std::string email;
-	std::string first_name;
-	std::string last_name;
-	std::string ip_address;
 	char time_str[12];
-	CStringW cstringTime, cstringIP;
 
 	// 현재 시간 정보 얻기
 	localtime_s(&current_time, &now);
 	std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &current_time);
-	BOOST_LOG_TRIVIAL(debug) << "Current time : " << time_str;
-	cstringTime = time_str;
+	BOOST_LOG_TRIVIAL(debug) << "Current time: " << time_str;
+	cstr_time = time_str;
 
 	if (queryUserInfo(remoteIP, response))
 	{
-		for (const auto& pair : response) {
-			BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
-		}
+		//for (const auto& pair : response) {
+		//	BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
+		//}
 		email = response["email"];
 		first_name = response["first_name"];
 		last_name = response["last_name"];
 		ip_address = response["ip_address"];
+		cstr_email = email.c_str();
+		cstr_first_name = first_name.c_str();
+		cstr_last_name = last_name.c_str();
+		cstr_ip_address = ip_address.c_str();
 
 		if (calling)
 		{
-			WriteToCallStatusEditBox(_T("[Called]\r\nTime: %s\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s\r\n"),
-				cstringTime, email, first_name, last_name, ip_address);
+			WriteToCallHistoryEditBox(_T("[Called]\r\n- Time: %s\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
+				cstr_time, cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 		}
 		else
 		{
-			WriteToCallStatusEditBox(_T("[Missed Call]\r\nTime: %s\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s\r\n"),
-				cstringTime, email, first_name, last_name, ip_address);
+			WriteToCallHistoryEditBox(_T("[Missed Call]\r\n- Time: %s\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
+				cstr_time, cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 		}
 	}
 	else
 	{
-		cstringIP = remoteIP;
+		cstr_ip = remoteIP;
 		if (calling)
 		{
-			WriteToCallStatusEditBox(_T("[Called]\r\nTime: %s\r\nIP Address: %s\r\nNo user information\r\n"),
-				cstringTime, cstringIP);
+			WriteToCallHistoryEditBox(_T("[Called]\r\n- Time: %s\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
+				cstr_time, cstr_ip);
 		}
 		else
 		{
-			WriteToCallStatusEditBox(_T("[Missed Call]\r\nTime: %s\r\nIP Address: %s\r\nNo user information\r\n"),
-				cstringTime, cstringIP);
+			WriteToCallHistoryEditBox(_T("[Missed Call]\r\n- Time: %s\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
+				cstr_time, cstr_ip);
 		}
 	}
-	BOOST_LOG_TRIVIAL(debug) << "@@@ End updateCallHistory";
+	BOOST_LOG_TRIVIAL(debug) << "End updateCallHistory";
 }
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -454,7 +455,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			OnDisconnect(hWnd, message, wParam, lParam);
 			break;
 		case IDM_START_SERVER:
-			updateCallStatus("192.128.0.126");
 			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
 				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
