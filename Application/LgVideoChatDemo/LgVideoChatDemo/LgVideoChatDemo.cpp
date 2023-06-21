@@ -25,8 +25,10 @@
 #include "ContactList.h"
 #include "CallHistory.h"
 #include "CallStatus.h"
-
+#include "BackendHttpsClient.h"
 #include "eWID.h"
+
+extern std::string accessToken;
 
 #pragma comment(lib,"comctl32.lib")
 #ifdef _DEBUG
@@ -46,6 +48,8 @@ HWND hWndMain, hCamWnd;
 GUID InstanceGuid;
 char guidBuf[1024];
 char LocalIpAddress[512] = "127.0.0.1";
+char* ConnectedIP = nullptr;
+CStringW cstringConnectedIP;
 TVoipAttr VoipAttr = { true,false };
 
 static HINSTANCE hInst;                                // current instance
@@ -76,6 +80,110 @@ static void SetHostAddr(void);
 static void SetStdOutToNewConsole(void);
 static void DisplayMessageOkBox(const char* Msg);
 static bool OnlyOneInstance(void);
+
+// Get user information
+bool queryUserInfo(const std::string& remoteIp, std::map<std::string, std::string>& userInfo) {
+	unsigned int rc = 0;
+	//std::string data = "ip_address=" + remoteIp;
+	std::string data = "ip_address=10.177.249.171";
+	std::string api = "/api/user/get-info-from-ip/";
+	std::string sessionToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYWY4ZjE4ZTYtMTAwNy0xMWVlLTlkYmUtNjA0NWJkZGM5NGY3IiwiaWF0IjoxNjg3MzM4OTY2LCJleHAiOjE2ODc0MjUzNjZ9.o0X5iGVprP28iSvOPQLbxxh4vWTffMwaGr5Dq61TK8U";
+
+	rc = sendPostRequest(api, data, sessionToken, userInfo);
+	if (rc == 200) {
+		return true;
+	}
+
+	return false;
+}
+
+// Update call status
+void updateCallStatus(const char* remoteIP)
+{
+	BOOST_LOG_TRIVIAL(debug) << "@@@ Start updateCallStatus : " << remoteIP;
+	std::map<std::string, std::string> response;
+	std::string email;
+	std::string first_name;
+	std::string last_name;
+	std::string ip_address;
+
+	if (queryUserInfo(remoteIP, response))
+	{
+		for (const auto& pair : response) {
+			BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
+		}
+		email = response["email"];
+		first_name = response["first_name"];
+		last_name = response["last_name"];
+		ip_address = response["ip_address"];
+
+		WriteToCallStatusEditBox(_T("[Calling...]\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s"),
+			email, first_name, last_name, ip_address);
+	}
+	else
+	{
+		WriteToCallStatusEditBox(_T("[Calling...]\r\nThe other party's information could not be found on the server"));
+	}
+	BOOST_LOG_TRIVIAL(debug) << "@@@ End updateCallStatus";
+}
+
+// Update call history
+void updateCallHistory(const char* remoteIP, bool calling)
+{
+	BOOST_LOG_TRIVIAL(debug) << "@@@ Start updateCallHistory : " << remoteIP;
+	std::map<std::string, std::string> response;
+	std::time_t now = std::time(nullptr);
+	std::tm current_time{};
+	std::string email;
+	std::string first_name;
+	std::string last_name;
+	std::string ip_address;
+	char time_str[12];
+	CStringW cstringTime, cstringIP;
+
+	// 현재 시간 정보 얻기
+	localtime_s(&current_time, &now);
+	std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &current_time);
+	BOOST_LOG_TRIVIAL(debug) << "Current time : " << time_str;
+	cstringTime = time_str;
+
+	if (queryUserInfo(remoteIP, response))
+	{
+		for (const auto& pair : response) {
+			BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
+		}
+		email = response["email"];
+		first_name = response["first_name"];
+		last_name = response["last_name"];
+		ip_address = response["ip_address"];
+
+		if (calling)
+		{
+			WriteToCallStatusEditBox(_T("[Called]\r\nTime: %s\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s\r\n"),
+				cstringTime, email, first_name, last_name, ip_address);
+		}
+		else
+		{
+			WriteToCallStatusEditBox(_T("[Missed Call]\r\nTime: %s\r\nEmail: %s\r\nFirst Name: %s\r\nLast Name: %s\r\nIP Address: %s\r\n"),
+				cstringTime, email, first_name, last_name, ip_address);
+		}
+	}
+	else
+	{
+		cstringIP = remoteIP;
+		if (calling)
+		{
+			WriteToCallStatusEditBox(_T("[Called]\r\nTime: %s\r\nIP Address: %s\r\nNo user information\r\n"),
+				cstringTime, cstringIP);
+		}
+		else
+		{
+			WriteToCallStatusEditBox(_T("[Missed Call]\r\nTime: %s\r\nIP Address: %s\r\nNo user information\r\n"),
+				cstringTime, cstringIP);
+		}
+	}
+	BOOST_LOG_TRIVIAL(debug) << "@@@ End updateCallHistory";
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -346,6 +454,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			OnDisconnect(hWnd, message, wParam, lParam);
 			break;
 		case IDM_START_SERVER:
+			updateCallStatus("192.128.0.126");
 			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
 				(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 			SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
@@ -424,9 +533,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CLIENT_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
 		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
-		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		//MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		//WriteToCallStatusEditBox(_T("[Waiting...]"));
 		break;
 	case WM_REMOTE_CONNECT:
+		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_CONNECT";
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
 			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
@@ -434,6 +545,9 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
 		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
+		// Update call status
+		ConnectedIP = reinterpret_cast<char*>(lParam);
+		updateCallStatus(ConnectedIP);
 		break;
 	case WM_REMOTE_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_LOST";
@@ -442,6 +556,13 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
 			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		WriteToCallStatusEditBox(_T("[Waiting...]"));
+		break;
+	case WM_REMOTE_MISSEDCALL:
+		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_MISSEDCALL";
+		// Update call history
+		ConnectedIP = reinterpret_cast<char*>(lParam);
+		updateCallHistory(ConnectedIP, false);
 		break;
 	case WM_VAD_STATE:
 	{
@@ -644,10 +765,10 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	CreateContactListWindow(hWnd, message, wParam, lParam, { 910, 100, 450, 300 });
 	
 	// 세 번째 서브 윈도우 생성 EditBox Call History
-	CreateCallHistoryWindow(hWnd, message, wParam, lParam, { 5, 475, 900, 115 });
+	CreateCallHistoryWindow(hWnd, message, wParam, lParam, { 910, 400, 450, 190 });
 	
 	// 네 번째 서브 윈도우 생성 EditBox Call Status
-	CreateCallStatusWindow(hWnd, message, wParam, lParam, { 910, 400, 450, 190, });
+	CreateCallStatusWindow(hWnd, message, wParam, lParam, { 5, 475, 900, 115 });
 
 	hWndMainToolbar = CreateSimpleToolbar(hWnd);
 
@@ -688,6 +809,9 @@ static int OnConnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 				BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
+
+				// Update call status
+				updateCallStatus(RemoteAddress);
 				return 1;
 			}
 			else
@@ -712,16 +836,19 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		VoipVoiceStop();
 		StopVideoClient();
 		CloseCamera();
-		BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
-
-		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
+		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+        BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
 	}
 	else if (IsVideoServerRunning())
 	{
 		ClosedConnection();
-		std::cout << "ClosedConnection" << std::endl;
+		BOOST_LOG_TRIVIAL(info) << "ClosedConnection";
 	}
+
+	WriteToCallStatusEditBox(_T("[Waiting...]"));
+
+	SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 	return 1;
 }
 

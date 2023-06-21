@@ -19,7 +19,7 @@ LRESULT CreateCallHistoryWindow(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		rt.left, rt.top + offset, rt.right, rt.bottom - offset,
 		hWnd, (HMENU)IDC_CALL_HISTORY, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 	
-	WriteToCallHistoryEditBox(_T("Provide a call history feature that allows users to view and review past calls, including details like participants, timestamps, and call duration.\n"));
+	WriteToCallHistoryEditBox(_T("[Call History]"));
 
 	return 0;
 }

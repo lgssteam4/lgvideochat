@@ -15,10 +15,6 @@
 #include "DisplayImage.h"
 #include "Camera.h"
 #include "ApplyOpenSSL.h"
-#include "BackendHttpsClient.h"
-
-extern std::string loginToken;
-extern std::string accessToken;
 
 static  std::vector<uchar> sendbuff;//buffer for coding
 enum InputMode { ImageSize, Image };
@@ -122,21 +118,6 @@ static void VideoServerCleanup(void)
 			SSL_CTX_free(ctxForServer);
 		}
 	}
-}
-
-bool queryUserInfo(const std::string& remoteIp, std::map<std::string, std::string>& userInfo) {
-	unsigned int rc = 0;
-	std::string data = "ip_address=" + remoteIp;
-	//std::string data = "ip_address=10.177.249.176";
-	std::string api = "/api/user/get-info-from-ip/";
-	std::string sessionToken = loginToken;
-
-	rc = sendPostRequest(api, data, sessionToken, userInfo);
-	if (rc == 200) {
-		return true;
-	}
-
-	return false;
 }
 
 static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
@@ -302,7 +283,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							// 클라이언트 연결 수락 or 거절
 							// Accept or decline client connections
-							int checkOK = MessageBox(hWndMain, L"Would you like to accept the phone call?", L"Video call is coming", MB_ICONQUESTION | MB_OKCANCEL);
+							int checkOK = MessageBox(hWndMain, L"Would you like to accept the video call?", L"Incoming video call", MB_ICONQUESTION | MB_OKCANCEL);
 							if (checkOK != IDOK)
 							{
 								BOOST_LOG_TRIVIAL(info) << "Server: Rejected video call";
@@ -323,9 +304,6 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								BOOST_LOG_TRIVIAL(info) << "Accepted Connection " << RemoteIp;
 							}
 
-							// Retrieves the information of the other party on the call from the back-end server using RemoteIp and displays it on the screen
-							// ToDo: RemoteIp를 이용하여 백앤드 서버로부터 통화 중인 상대방 정보를 가져와 화면에 표시
-
 							if (!Loopback)
 							{
 								if ((strcmp(RemoteIp, LocalIpAddress) == 0) ||
@@ -339,7 +317,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 							// 연결 상태를 알리는 메시지 전송
 							// Send message indicating connection status
-							PostMessage(hWndMain, WM_REMOTE_CONNECT, 0, 0);
+							PostMessage(hWndMain, WM_REMOTE_CONNECT, 0, reinterpret_cast<LPARAM>(RemoteIp));
 							hAcceptEvent = WSACreateEvent();
 							WSAEventSelect(SSLAccept, hAcceptEvent, FD_READ | FD_WRITE | FD_CLOSE);
 							ghEvents[2] = hAcceptEvent;
@@ -382,19 +360,10 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 								if (err != 0) {
 									snprintf(RemoteIp, sizeof(RemoteIp), "invalid address");
 								}
-
-								// Retrieves the other party information of the missed call record from the back-end server using RemoteIp and displays it on the screen
-								// ToDo: RemoteIp를 이용하여 백앤드 서버로부터 부재 중 통화 기록의 상대방 정보를 가져와 화면에 표시
-								/*
-								std::map<std::string, std::string> response;
-								queryUserInfo(RemoteIp, response);
-								std::cout << "TEST - UPDATE- QUERY" << std::endl;
-								for (const auto& pair : response) {
-									std::cout << pair.first << ": " << pair.second << std::endl;
-								}
-								*/
 								closesocket(Temp);
 								BOOST_LOG_TRIVIAL(info) << "Refused-Already Connected";
+
+								PostMessage(hWndMain, WM_REMOTE_MISSEDCALL, 0, reinterpret_cast<LPARAM>(RemoteIp));
 							}
 						}
 					}
