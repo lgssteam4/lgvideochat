@@ -44,7 +44,7 @@ bool isDuplicateEmail(const std::string& email) {
     checkDuplicateEmail = false;
     unsigned int rc = 0;
 
-    std::string api = "/api/check-email/";
+    std::string api = "/api/user/check-email/";
     std::string data = "email=" + email;
     rc = sendPostRequest(api, data, "");
     if (rc == 403 || rc == 400) {
@@ -356,7 +356,6 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         {
             // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
             checkEmail(hDlg);
-
             return TRUE;
         }
         else if (LOWORD(wParam) == IDC_UPDATE_BUTTON_OTP)

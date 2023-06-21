@@ -433,13 +433,35 @@ unsigned int sendPostRequest(const std::string& function, const std::string& dat
     return statusCode;
 }
 
+unsigned int sendPostRequest(const std::string& function, const std::string& data,
+    const std::string& sessionToken, std::map<std::string, std::string>& response) {
+    int rc = 0;
+    unsigned int statusCode = 0;
+
+    rc = request("POST", function, data, sessionToken, &statusCode, response);
+    std::cout << "POST : statusCode - " << statusCode << std::endl;
+    // 3rd param is session token
+
+    for (const auto& pair : response) {
+        std::cout << pair.first << ": " << pair.second << std::endl;
+    }
+
+    // Remove ""
+    for (auto& pair : response) {
+        std::string& value = pair.second;
+        value.erase(std::remove(value.begin(), value.end(), '\"'), value.end());
+    }
+
+    return statusCode;
+}
+
 unsigned int backendCheckEmail(const std::string& email) {
     int rc = 0;
     unsigned int statusCode = 0;
     std::map<std::string, std::string> response;
 
     std::string data = "email=" + email;
-    rc = request("POST", "/api/check-email/", data, "", &statusCode, response);
+    rc = request("POST", "/api/user/check-email/", data, "", &statusCode, response);
     std::cout << "POST : statusCode - " << statusCode << std::endl;
     // 3rd param is session token
 

@@ -7,4 +7,5 @@ int request(std::string request_method, std::string uri, std::string session_tok
 int request(std::string request_method, std::string uri, std::string data, std::string session_token, unsigned int* status_code, std::map<std::string, std::string>& response);
 unsigned int sendGetRequest(const std::string& function, const std::string& sessionToken);
 unsigned int sendPostRequest(const std::string& function, const std::string& data, const std::string& sessionToken);
+unsigned int sendPostRequest(const std::string& function, const std::string& data, const std::string& sessionToken, std::map<std::string, std::string>& response);
 unsigned int backendCheckEmail(const std::string& email);

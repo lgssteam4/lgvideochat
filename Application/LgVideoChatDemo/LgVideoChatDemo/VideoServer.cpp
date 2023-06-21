@@ -15,6 +15,10 @@
 #include "DisplayImage.h"
 #include "Camera.h"
 #include "ApplyOpenSSL.h"
+#include "BackendHttpsClient.h"
+
+extern std::string loginToken;
+extern std::string accessToken;
 
 static  std::vector<uchar> sendbuff;//buffer for coding
 enum InputMode { ImageSize, Image };
@@ -118,6 +122,21 @@ static void VideoServerCleanup(void)
 			SSL_CTX_free(ctxForServer);
 		}
 	}
+}
+
+bool queryUserInfo(const std::string& remoteIp, std::map<std::string, std::string>& userInfo) {
+	unsigned int rc = 0;
+	std::string data = "ip_address=" + remoteIp;
+	//std::string data = "ip_address=10.177.249.176";
+	std::string api = "/api/user/get-info-from-ip/";
+	std::string sessionToken = loginToken;
+
+	rc = sendPostRequest(api, data, sessionToken, userInfo);
+	if (rc == 200) {
+		return true;
+	}
+
+	return false;
 }
 
 static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
@@ -366,8 +385,14 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 
 								// Retrieves the other party information of the missed call record from the back-end server using RemoteIp and displays it on the screen
 								// ToDo: RemoteIp를 이용하여 백앤드 서버로부터 부재 중 통화 기록의 상대방 정보를 가져와 화면에 표시
-
-
+								/*
+								std::map<std::string, std::string> response;
+								queryUserInfo(RemoteIp, response);
+								std::cout << "TEST - UPDATE- QUERY" << std::endl;
+								for (const auto& pair : response) {
+									std::cout << pair.first << ": " << pair.second << std::endl;
+								}
+								*/
 								closesocket(Temp);
 								BOOST_LOG_TRIVIAL(info) << "Refused-Already Connected";
 							}
