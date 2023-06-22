@@ -209,7 +209,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	WSADATA wsaData;
 	HRESULT hr;
 
-	SetStdOutToNewConsole();
+	//SetStdOutToNewConsole();
 	InitLogging();
 
 	int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
