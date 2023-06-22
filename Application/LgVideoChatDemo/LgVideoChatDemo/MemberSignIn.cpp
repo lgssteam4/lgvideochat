@@ -35,6 +35,12 @@ bool GenerateOTP(HWND hDlg)
         EnableWindow(GetDlgItem(hDlg, IDC_SIGNIN_B_GEN_OTP), TRUE);
         SendMessage(GetDlgItem(hDlg, IDC_SIGNIN_E_OTP), EM_LIMITTEXT, 6, 0);
     }
+    else if (rc == 400)
+    {
+        BOOST_LOG_TRIVIAL(error) << "User doest not exist";
+        MessageBox(hDlg, TEXT("User doest not exist"), TEXT("Generate OTP"), MB_OK | MB_ICONERROR);
+        return false;
+    }
     else if (rc == 403)
     {
         BOOST_LOG_TRIVIAL(error) << "Please proceed with email account activation";
@@ -112,6 +118,12 @@ bool PerformSignIn(HWND hDlg)
         BOOST_LOG_TRIVIAL(info) << "Sign-In successful!";
         return true;
     }
+    else if (rc == 400)
+    {
+        BOOST_LOG_TRIVIAL(error) << "User doest not exist";
+        MessageBox(hDlg, TEXT("User doest not exist"), TEXT("Generate OTP"), MB_OK | MB_ICONERROR);
+        return false;
+    }
     else
     {
         //If the user enters the incorrect password more than three times, then their account will be locked for one hour
@@ -119,10 +131,10 @@ bool PerformSignIn(HWND hDlg)
         std::string errorMsg;
         if(message == "Invalid credentials")
         {
+            BOOST_LOG_TRIVIAL(info) << "Invalid credentials";
             //If the user enters the incorrect password more than three times, then their account will be locked for one hour
-            int attempts = std::stoi(response["remaining_attempts"]);
-            std::string errorMsg;
-            if (attempts > 0)
+            std::string remainingAttempts = response["remaining_attempts"];
+            if (std::stoi(remainingAttempts) > 0)
             {
                 errorMsg = "You entered the wrong password\nIf you are wrong more than " + response["remaining_attempts"] + " times, your account will be locked for 1 hour";
             }
