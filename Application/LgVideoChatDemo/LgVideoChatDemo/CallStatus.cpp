@@ -19,7 +19,7 @@ LRESULT CreateCallStatusWindow(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		rt.left, rt.top + offset, rt.right, rt.bottom - offset,
 		hWnd, (HMENU)IDC_CALL_HISTORY, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 
-	WriteToCallStatusEditBox(_T("[Waiting...]"));
+	//WriteToCallStatusEditBox(_T("[ Waiting... ]"));
 
 	return 0;
 }

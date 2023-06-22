@@ -49,6 +49,9 @@ GUID InstanceGuid;
 char guidBuf[1024];
 char LocalIpAddress[512] = "127.0.0.1";
 char* ConnectedIP = nullptr;
+char* MissedIP = nullptr;
+std::time_t startCall, endCall;
+std::tm startCall_time{}, endCall_time{};
 TVoipAttr VoipAttr = { true,false };
 
 static HINSTANCE hInst;                                // current instance
@@ -103,6 +106,9 @@ void updateCallStatus(const char* remoteIP)
 	std::string email, first_name, last_name, ip_address;
 	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address;
 
+	// Check call start time
+	startCall = std::time(nullptr);
+
 	if (queryUserInfo(remoteIP, response))
 	{
 		//for (const auto& pair : response) {
@@ -117,12 +123,12 @@ void updateCallStatus(const char* remoteIP)
 		cstr_last_name = last_name.c_str();
 		cstr_ip_address = ip_address.c_str();
 
-		WriteToCallStatusEditBox(_T("[Calling...]\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s"),
+		WriteToCallStatusEditBox(_T("[ Calling... ]\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s"),
 			cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 	}
 	else
 	{
-		WriteToCallStatusEditBox(_T("[Calling...]\r\nNo user information"));
+		WriteToCallStatusEditBox(_T("[ Calling... ]\r\nNo user information"));
 	}
 	BOOST_LOG_TRIVIAL(debug) << "End updateCallStatus";
 }
@@ -134,13 +140,24 @@ void updateCallHistory(const char* remoteIP, bool calling)
 	std::map<std::string, std::string> response;
 	std::string email, first_name, last_name, ip_address;
 	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address, cstr_time, cstr_ip;
-	std::time_t now = std::time(nullptr);
-	std::tm current_time{};
+	std::time_t duration;
 	char time_str[12];
 
-	// 현재 시간 정보 얻기
-	localtime_s(&current_time, &now);
-	std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &current_time);
+	// Check call end time
+	endCall = std::time(nullptr);
+
+	if (calling)
+	{
+		duration = std::difftime(endCall, startCall);
+		localtime_s(&startCall_time, &startCall);
+		std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &startCall_time);
+	}
+	else
+	{
+		localtime_s(&endCall_time, &endCall);
+		std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &endCall_time);
+	}
+
 	BOOST_LOG_TRIVIAL(debug) << "Current time: " << time_str;
 	cstr_time = time_str;
 
@@ -160,12 +177,12 @@ void updateCallHistory(const char* remoteIP, bool calling)
 
 		if (calling)
 		{
-			WriteToCallHistoryEditBox(_T("[Called]\r\n- Time: %s\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
-				cstr_time, cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
+			WriteToCallHistoryEditBox(_T("[ Called ]\r\n- Time: %s (duration: %ds)\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
+				cstr_time, static_cast<int>(duration), cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 		}
 		else
 		{
-			WriteToCallHistoryEditBox(_T("[Missed Call]\r\n- Time: %s\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
+			WriteToCallHistoryEditBox(_T(" [Missed Call ]\r\n- Time: %s\r\n- Email: %s\r\n- First Name: %s\r\n- Last Name: %s\r\n- IP Address: %s\r\n\r\n"),
 				cstr_time, cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address);
 		}
 	}
@@ -174,12 +191,12 @@ void updateCallHistory(const char* remoteIP, bool calling)
 		cstr_ip = remoteIP;
 		if (calling)
 		{
-			WriteToCallHistoryEditBox(_T("[Called]\r\n- Time: %s\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
-				cstr_time, cstr_ip);
+			WriteToCallHistoryEditBox(_T("[ Called ]\r\n- Time: %s (duration: %ds)\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
+				cstr_time, static_cast<int>(duration), cstr_ip);
 		}
 		else
 		{
-			WriteToCallHistoryEditBox(_T("[Missed Call]\r\n- Time: %s\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
+			WriteToCallHistoryEditBox(_T("[ Missed Call ]\r\n- Time: %s\r\n- IP Address: %s\r\nNo user information\r\n\r\n"),
 				cstr_time, cstr_ip);
 		}
 	}
@@ -389,7 +406,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			GetWindowTextA(hEditWnd, RemoteAddress, sizeof(RemoteAddress));
 		}
 		break;
-
 		case IDC_CHECKBOX_LOOPBACK:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_LOOPBACK);
@@ -403,7 +419,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDC_CHECKBOX_AEC:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_AEC);
@@ -417,7 +432,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDC_CHECKBOX_NS:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_NS);
@@ -431,7 +445,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -533,8 +546,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CLIENT_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
 		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
-		//MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
-		//WriteToCallStatusEditBox(_T("[Waiting...]"));
+		// Update call history
+		updateCallHistory(RemoteAddress, true);
 		break;
 	case WM_REMOTE_CONNECT:
 		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_CONNECT";
@@ -542,12 +555,12 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
 			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
-
-		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-		BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
 		// Update call status
 		ConnectedIP = reinterpret_cast<char*>(lParam);
 		updateCallStatus(ConnectedIP);
+
+		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		BOOST_LOG_TRIVIAL(info) << "Enable window alway on top.";
 		break;
 	case WM_REMOTE_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_LOST";
@@ -555,14 +568,19 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
 		SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
 			(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+		// Update call history
+		updateCallHistory(ConnectedIP, true);
+		
+		WriteToCallStatusEditBox(_T("[ Waiting... ]"));
 		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
-		WriteToCallStatusEditBox(_T("[Waiting...]"));
+		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+		BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 		break;
 	case WM_REMOTE_MISSEDCALL:
 		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_MISSEDCALL";
 		// Update call history
-		ConnectedIP = reinterpret_cast<char*>(lParam);
-		updateCallHistory(ConnectedIP, false);
+		MissedIP = reinterpret_cast<char*>(lParam);
+		updateCallHistory(MissedIP, false);
 		break;
 	case WM_VAD_STATE:
 	{
@@ -845,7 +863,7 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		BOOST_LOG_TRIVIAL(info) << "ClosedConnection";
 	}
 
-	WriteToCallStatusEditBox(_T("[Waiting...]"));
+	WriteToCallStatusEditBox(_T("[ Waiting... ]"));
 
 	SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 	BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";

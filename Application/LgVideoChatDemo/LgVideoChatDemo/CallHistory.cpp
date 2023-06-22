@@ -35,19 +35,18 @@ int WriteToCallHistoryEditBox(const TCHAR* fmt, ...)
 
 	va_start(argptr, fmt);
 
-	cnt = wvsprintf(buffer, fmt, argptr);
+	cnt = _vsntprintf_s(buffer, _countof(buffer), _TRUNCATE, fmt, argptr);
 
 	va_end(argptr);
 
 	iEditTextLength = GetWindowTextLength(hWnd);
 	if (iEditTextLength + cnt > 30000)       // edit text max length is 30000
 	{
-		SendMessage(hWnd, EM_SETSEL, 0, 10000);
-		SendMessage(hWnd, WM_CLEAR, 0, 0);
-		PostMessage(hWnd, EM_SETSEL, 0, 10000);
-		iEditTextLength = iEditTextLength - 10000;
+		SendMessage(hWnd, EM_SETSEL, iEditTextLength - 10000, iEditTextLength);
+		SendMessage(hWnd, EM_REPLACESEL, 0, (LPARAM)_T(""));
+		iEditTextLength -= 10000;
 	}
-	SendMessage(hWnd, EM_SETSEL, iEditTextLength, iEditTextLength);
+	SendMessage(hWnd, EM_SETSEL, 0, 0);
 	SendMessage(hWnd, EM_REPLACESEL, 0, (LPARAM)buffer);
 	return(cnt);
 }
