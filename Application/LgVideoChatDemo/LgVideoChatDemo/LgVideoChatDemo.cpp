@@ -382,6 +382,7 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	INT_PTR resultSignUp;
+	INT_PTR resultUpdate;
 
 	switch (message)
 	{
@@ -510,7 +511,23 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 			break;
 		case IDM_UPDATE:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
+			resultUpdate = DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
+			if (resultUpdate == IDOK) {
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_SIGNIN,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_SIGNUP,
+					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_UPDATE,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_CONNECT,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_DISCONNECT,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_STOP_SERVER,
+					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
+			}
 			break;
 
 		default:

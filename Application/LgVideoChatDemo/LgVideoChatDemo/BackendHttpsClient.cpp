@@ -1,3 +1,5 @@
+#include "BoostLog.h"
+#include "framework.h"
 #include <iostream>
 #include <istream>
 #include <ostream>
@@ -48,7 +50,7 @@ public:
 
         // Start an asynchronous resolve to translate the server and service names
         // into a list of endpoints.
-        // std::cout << "client: resolving " << server << " (scheme " << scheme << ") ...\n";
+        // BOOST_LOG_TRIVIAL(info) << "client: resolving " << server << " (scheme " << scheme << ") ...\n";
         // Always use https for resolving. If the server really is on http only,
         // the resolver will manage it anyways.
         // If your system doesn't define service https (in /etc/services)
@@ -91,7 +93,7 @@ public:
 
         // Start an asynchronous resolve to translate the server and service names
         // into a list of endpoints.
-        // std::cout << "client: resolving " << server << " (scheme " << scheme << ") ...\n";
+        // BOOST_LOG_TRIVIAL(info) << "client: resolving " << server << " (scheme " << scheme << ") ...\n";
         // Always use https for resolving. If the server really is on http only,
         // the resolver will manage it anyways.
         // If your system doesn't define service https (in /etc/services)
@@ -119,7 +121,7 @@ private:
     {
         if (!err)
         {
-            std::cout << "Resolve OK" << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Resolve OK";
             socket_.set_verify_mode(boost::asio::ssl::verify_peer);
             socket_.set_verify_callback(
                 boost::bind(&client::verifyCertificate, this, _1, _2));
@@ -130,14 +132,14 @@ private:
         }
         else
         {
-            std::cout << "Error resolve: " << err.message() << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Error resolve: " << err.message();
         }
     }
 
     bool verifyCertificate(bool preverified,
         boost::asio::ssl::verify_context& ctx)
     {
-        std::cout << "verifyCertificate (preverified " << preverified << " ) ...\n";
+        BOOST_LOG_TRIVIAL(info) << "verifyCertificate (preverified " << preverified << " ) ...";
         // The verify callback can be used to check whether the certificate that is
         // being presented is valid for the peer. For example, RFC 2818 describes
         // the steps involved in doing this for HTTPS. Consult the OpenSSL
@@ -149,7 +151,7 @@ private:
         char subject_name[256];
         X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
         X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
-        std::cout << "Verifying " << subject_name << "\n";
+        BOOST_LOG_TRIVIAL(info) << "Verifying " << subject_name;
 
         // dummy verification
         return true;
@@ -157,29 +159,29 @@ private:
 
     void handleConnect(const boost::system::error_code& err)
     {
-        std::cout << "handleConnect\n";
+        BOOST_LOG_TRIVIAL(info) << "handleConnect";
         if (!err)
         {
-            std::cout << "Connect OK " << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Connect OK ";
             socket_.async_handshake(boost::asio::ssl::stream_base::client,
                 boost::bind(&client::handleHandshake, this,
                     boost::asio::placeholders::error));
         }
         else
         {
-            std::cout << "Connect failed: " << err.message() << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Connect failed: " << err.message();
         }
     }
 
     void handleHandshake(const boost::system::error_code& error)
     {
-        std::cout << "handleHandshake start \n";
+        BOOST_LOG_TRIVIAL(info) << "handleHandshake start";
         if (!error)
         {
-            std::cout << "Handshake OK " << "\n";
-            std::cout << "Request: " << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Handshake OK ";
+            BOOST_LOG_TRIVIAL(info) << "Request: ";
             const char* header = boost::asio::buffer_cast<const char*>(request_.data());
-            std::cout << header << "\n";
+            BOOST_LOG_TRIVIAL(info) << header;
 
             // The handshake was successful. Send the request.
             boost::asio::async_write(socket_, request_,
@@ -188,13 +190,13 @@ private:
         }
         else
         {
-            std::cout << "Handshake failed: " << error.message() << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Handshake failed: " << error.message();
         }
     }
 
     void handleWriteRequest(const boost::system::error_code& err)
     {
-        std::cout << "handleWriteRequest start \n";
+        BOOST_LOG_TRIVIAL(info) << "handleWriteRequest start \n";
         if (!err)
         {
             // Read the response status line. The response_ streambuf will
@@ -206,13 +208,13 @@ private:
         }
         else
         {
-            std::cout << "Error write req: " << err.message() << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Error write req: " << err.message();
         }
     }
 
     void handleReadStatusLine(const boost::system::error_code& err)
     {
-        std::cout << "handleReadStatusLine start \n";
+        BOOST_LOG_TRIVIAL(info) << "handleReadStatusLine start";
         if (!err)
         {
             // Check that response is OK.
@@ -232,21 +234,21 @@ private:
 
             if (!response_stream || http_version.substr(0, 5) != "HTTP/")
             {
-                std::cout << "Invalid response\n";
+                BOOST_LOG_TRIVIAL(info) << "Invalid response";
                 return;
             }
             if (status_code != 200)
             {
-                std::cout << "Response returned with status code ";
-                std::cout << status_code << "\n";
+                BOOST_LOG_TRIVIAL(info) << "Response returned with status code ";
+                BOOST_LOG_TRIVIAL(info) << status_code;
                 return;
             }
-            std::cout << "Status code: " << status_code << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Status code: " << status_code;
 
         }
         else
         {
-            std::cout << "Error: " << err.message() << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Error: " << err.message();
         }
     }
 
@@ -275,7 +277,7 @@ private:
             }
         }
         catch (const std::exception& e) {
-            std::cout << "Error parsing JSON: " << e.what() << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "Error parsing JSON: " << e.what();
         }
 
         return result;
@@ -283,21 +285,20 @@ private:
 
     void handleReadHeaders(const boost::system::error_code& err)
     {
-        std::cout << "handleReadHeaders\n";
+        BOOST_LOG_TRIVIAL(info) << "handleReadHeaders\n";
         if (!err)
         {
             // Process the response headers.
             std::istream response_stream(&response_);
             std::string header;
             while (std::getline(response_stream, header) && header != "\r")
-                std::cout << header << "\n";
-            std::cout << "\n";
+                BOOST_LOG_TRIVIAL(info) << header;
 
             // Write whatever content we already have to output.
             if (response_.size() > 0)
             {
                 std::string str = CopyStreambufToString(&response_);
-                std::cout << "content string : " << str << std::endl;
+                BOOST_LOG_TRIVIAL(info) << "content string : " << str;
                 keyValuePairs = ParseJsonString(str);
             }
 
@@ -309,7 +310,7 @@ private:
         }
         else
         {
-            std::cout << "Error: " << err << "\n";
+            BOOST_LOG_TRIVIAL(error) << "Error: " << err;
         }
     }
 
@@ -318,7 +319,7 @@ private:
         if (!err)
         {
             // Write all of the data that has been read so far.
-            std::cout << &response_;
+            BOOST_LOG_TRIVIAL(info) << &response_;
 
             // Continue reading remaining data until EOF.
             boost::asio::async_read(socket_, response_,
@@ -328,7 +329,7 @@ private:
         }
         else if (err != boost::asio::error::eof)
         {
-            std::cout << "Error: " << err << "\n";
+            BOOST_LOG_TRIVIAL(info) << "Error: " << err;
         }
     }
 
@@ -348,7 +349,7 @@ int request(std::string request_method, std::string uri, std::string session_tok
         // Parse an URL. This allocates no memory. The view
         // references the character buffer without taking ownership.
         std::string url_string = SERVER + uri;
-        std::cout << url_string << std::endl;
+        BOOST_LOG_TRIVIAL(info) << url_string;
         boost::urls::url_view uv(url_string);
         // Create a modifiable copy of `uv`, with ownership of the buffer
         boost::urls::url url = uv;
@@ -362,12 +363,12 @@ int request(std::string request_method, std::string uri, std::string session_tok
         client c(io_context, ssl_context, request_method, url, session_token);
         io_context.run();
         *status_code = c.get_status_code();
-        std::cout << "status_code : " << *status_code << "\n";
+        BOOST_LOG_TRIVIAL(info) << "status_code : " << *status_code;
         response = c.getKeyValue();
     }
     catch (std::exception& e)
     {
-        std::cout << "Exception: " << e.what() << "\n";
+        BOOST_LOG_TRIVIAL(info) << "Exception: " << e.what();
         return 1;
     }
 
@@ -382,7 +383,7 @@ int request(std::string request_method, std::string uri, std::string data, std::
         // Parse an URL. This allocates no memory. The view
         // references the character buffer without taking ownership.
         std::string url_string = SERVER + uri;
-        std::cout << url_string << std::endl;
+        BOOST_LOG_TRIVIAL(info) << url_string;
         boost::urls::url_view uv(url_string);
         // Create a modifiable copy of `uv`, with ownership of the buffer
         boost::urls::url url = uv;
@@ -396,12 +397,12 @@ int request(std::string request_method, std::string uri, std::string data, std::
         client c(io_context, ssl_context, request_method, url, data, session_token);
         io_context.run();
         *status_code = c.get_status_code();
-        std::cout << "status_code : " << *status_code << "\n";
+        BOOST_LOG_TRIVIAL(info) << "status_code : " << *status_code;
         response = c.getKeyValue();
     }
     catch (std::exception& e)
     {
-        std::cout << "Exception: " << e.what() << "\n";
+        BOOST_LOG_TRIVIAL(info) << "Exception: " << e.what();
         return 1;
     }
 
@@ -415,12 +416,13 @@ unsigned int sendGetRequest(const std::string& function, const std::string& sess
 
     // Send GET request
     rc = request("GET", function, sessionToken, &statusCode, response);
-    std::cout << "GET : statusCode - " << statusCode << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "GET : statusCode - " << statusCode;
     // 3rd param is session token
-
+    /*
     for (const auto& pair : response) {
-        std::cout << pair.first << ": " << pair.second << std::endl;
+        BOOST_LOG_TRIVIAL(info) << pair.first << ": " << pair.second;
     }
+    */
 
     return statusCode;
 }
@@ -431,13 +433,13 @@ unsigned int sendPostRequest(const std::string& function, const std::string& dat
     std::map<std::string, std::string> response;
 
     rc = request("POST", function, data, sessionToken, &statusCode, response);
-    std::cout << "POST : statusCode - " << statusCode << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "POST : statusCode - " << statusCode;
     // 3rd param is session token
-
+    /*
     for (const auto& pair : response) {
-        std::cout << pair.first << ": " << pair.second << std::endl;
+        BOOST_LOG_TRIVIAL(info) << pair.first << ": " << pair.second;
     }
-
+    */
     return statusCode;
 }
 
@@ -447,12 +449,12 @@ unsigned int sendPostRequest(const std::string& function, const std::string& dat
     unsigned int statusCode = 0;
 
     rc = request("POST", function, data, sessionToken, &statusCode, response);
-    std::cout << "POST : statusCode - " << statusCode << std::endl;
     // 3rd param is session token
-
+    /*
     for (const auto& pair : response) {
-        std::cout << pair.first << ": " << pair.second << std::endl;
+        BOOST_LOG_TRIVIAL(info) << pair.first << ": " << pair.second;
     }
+    */
 
     return statusCode;
 }

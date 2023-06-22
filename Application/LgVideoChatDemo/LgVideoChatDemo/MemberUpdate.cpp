@@ -4,8 +4,6 @@ extern std::string accessToken;
 
 std::string newEmail = "";
 bool checkDuplicateEmail = false;
-// OTP 버튼 상태를 나타내는 변수
-bool updateOTPEnabled = true;
 
 bool updatePasswordEmail(const std::string& password, const std::string& newPassword,
     const std::string& confirmPassword, const std::string& email, const std::string& otp) {
@@ -48,22 +46,21 @@ bool getOTP(HWND hDlg)
 
     std::string api = "/api/user/generate-otp";
     std::string sessionToken = accessToken;
-    
+   
     rc = sendGetRequest(api, sessionToken);
     if (rc == 200) {
 
-        // 업데이트가 성공하면 알림 창을 띄웁니다.
+        // Display a notification window if the update is successful
         MessageBox(hDlg, TEXT("Please enter the OTP code that has been sent to your email"), TEXT("Get OTP"), MB_OK | MB_ICONINFORMATION);
 
-        updateOTPEnabled = false;
         EnableWindow(GetDlgItem(hDlg, IDC_UPDATE_B_GEN_OTP), FALSE);
         inActivateTextBox(hDlg, IDC_UPDATE_E_OTP, true);
+        SendMessage(GetDlgItem(hDlg, IDC_UPDATE_E_OTP), EM_LIMITTEXT, 6, 0);
 
         // Start the countdown.
         std::thread countdownThread(ShowCountdown, hDlg, IDC_UPDATE_T_OTP_TIME);
         countdownThread.detach();
 
-        updateOTPEnabled = true;
         EnableWindow(GetDlgItem(hDlg, IDC_UPDATE_B_GEN_OTP), TRUE);
     }
     else {
@@ -190,17 +187,16 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             // Perform update
             if (performUpdate(hDlg))
             {
-                // 업데이트가 성공하면 알림 창을 띄웁니다.
-                BOOST_LOG_TRIVIAL(error) << "Update successful!";
+                // Display a notification window if the update is successful
+                BOOST_LOG_TRIVIAL(info) << "Update successful!";
                 MessageBox(hDlg, TEXT("Update successful!"), TEXT("Success"), MB_OK | MB_ICONINFORMATION);
-
-                // 업데이트가 성공하면 다이얼로그를 닫습니다.
+                accessToken = "";
+                // Close the dialog if the update is successful
                 EndDialog(hDlg, IDOK);
             }
             else
             {
-                // 입력이 유효하지 않거나 업데이트가 실패한 경우에 대한 처리
-                // MessageBox(hDlg, TEXT("Invalid email, password, or OTP."), TEXT("Update Error"), MB_OK | MB_ICONERROR);
+                // Handling for invalid input or failed update
                 return FALSE;
             }
 
@@ -208,13 +204,13 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else if (LOWORD(wParam) == IDCANCEL)
         {
-            // 취소 버튼을 누르면 다이얼로그를 닫습니다.
+            // Close the dialog if the cancel button is pressed
             EndDialog(hDlg, IDCANCEL);
             return TRUE;
         }
         else if (LOWORD(wParam) == IDC_UPDATE_B_CHECK_NEW_EMAIL)
         {
-            // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
+            // Call the OnButtonOTPClick function when the IDC_UPDATE_BUTTON_DUPLICATE button is clicked
             std::string email;
             checkDuplicateEmail = checkEmail(hDlg, IDC_UPDATE_E_NEW_EMAIL, email);
             if (checkDuplicateEmail)
@@ -226,7 +222,7 @@ INT_PTR CALLBACK Update(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else if (LOWORD(wParam) == IDC_UPDATE_B_GEN_OTP)
         {
-            // IDC_UPDATE_BUTTON_OTP 버튼 클릭 시 getOTP 함수 호출
+            // Call the getOTP function when the IDC_UPDATE_BUTTON_OTP button is clicked
             getOTP(hDlg);
 
             return TRUE;

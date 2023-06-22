@@ -32,6 +32,7 @@ bool GenerateOTP(HWND hDlg)
         countdownThread.detach();
 
         EnableWindow(GetDlgItem(hDlg, IDC_SIGNIN_B_GEN_OTP), TRUE);
+        SendMessage(GetDlgItem(hDlg, IDC_SIGNIN_E_OTP), EM_LIMITTEXT, 6, 0);
     }
     else if (rc == 403)
     {
@@ -42,21 +43,32 @@ bool GenerateOTP(HWND hDlg)
     else
     {
         //If the user enters the incorrect password more than three times, then their account will be locked for one hour
-        int attempts = std::stoi(response["remaining_attempts"]);
+        std::string message = response["message"];
         std::string errorMsg;
-        if (attempts > 0)
+        if (message == "Invalid credentials")
         {
-            errorMsg = "You entered the wrong password\nIf you are wrong more than " + response["remaining_attempts"] + " times, your account will be locked for 1 hour";
+            BOOST_LOG_TRIVIAL(info) << "Invalid credentials";
+            //If the user enters the incorrect password more than three times, then their account will be locked for one hour
+            std::string remainingAttempts = response["remaining_attempts"];
+            if (std::stoi(remainingAttempts) > 0)
+            {
+                errorMsg = "You entered the wrong password\nIf you are wrong more than " + remainingAttempts + " times, your account will be locked for 1 hour";
+            }
+            else
+            {
+                errorMsg = "Your account has been locked for 1 hour\nPlease try again in 1 hour.";
+            }
         }
         else
         {
-            errorMsg = "Your account has been locked for 1 hour\nPlease try again in 1 hour.";
+            errorMsg = response["message"];
         }
+
+        BOOST_LOG_TRIVIAL(error) << errorMsg;
 
         std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
         std::wstring wstr = converter.from_bytes(errorMsg);
 
-        BOOST_LOG_TRIVIAL(error) << errorMsg;
         MessageBox(hDlg, wstr.c_str(), TEXT("Generate OTP"), MB_OK | MB_ICONERROR);
         return false;
     }
@@ -95,28 +107,32 @@ bool PerformSignIn(HWND hDlg)
     if (rc == 200)
     {
         accessToken = response["access_token"];
-        BOOST_LOG_TRIVIAL(error) << "Sign-In access_token : " << accessToken;
-        BOOST_LOG_TRIVIAL(error) << "Sign-In successful!";
+        BOOST_LOG_TRIVIAL(info) << "Sign-In access_token : " << accessToken;
+        BOOST_LOG_TRIVIAL(info) << "Sign-In successful!";
         return true;
-    }
-    else if (rc == 403)
-    {
-        BOOST_LOG_TRIVIAL(error) << "Please proceed with email account activation";
-        MessageBox(hDlg, TEXT("Please proceed with email account activation"), TEXT("Generate OTP"), MB_OK | MB_ICONERROR);
-        return false;
     }
     else
     {
         //If the user enters the incorrect password more than three times, then their account will be locked for one hour
-        int attempts = std::stoi(response["remaining_attempts"]);
+        std::string message = response["message"];
         std::string errorMsg;
-        if (attempts > 0)
+        if(message == "Invalid credentials")
         {
-            errorMsg = "You entered the wrong password\nIf you are wrong more than " + response["remaining_attempts"] + " times, your account will be locked for 1 hour";
+            //If the user enters the incorrect password more than three times, then their account will be locked for one hour
+            int attempts = std::stoi(response["remaining_attempts"]);
+            std::string errorMsg;
+            if (attempts > 0)
+            {
+                errorMsg = "You entered the wrong password\nIf you are wrong more than " + response["remaining_attempts"] + " times, your account will be locked for 1 hour";
+            }
+            else
+            {
+                errorMsg = "Your account has been locked for 1 hour\nPlease try again in 1 hour.";
+            }
         }
         else
         {
-            errorMsg = "Your account has been locked for 1 hour\nPlease try again in 1 hour.";
+            errorMsg = response["message"];
         }
 
         std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
@@ -145,7 +161,7 @@ INT_PTR CALLBACK SignIn(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             // Perform SignIn
             if (PerformSignIn(hDlg))
             {
-                BOOST_LOG_TRIVIAL(error) << "Sign-In successful!";
+                BOOST_LOG_TRIVIAL(info) << "Sign-In successful!";
                 MessageBox(hDlg, TEXT("Sign-In successful!"), TEXT("Sign-In Success"), MB_OK | MB_ICONINFORMATION);
                 EndDialog(hDlg, IDOK);
             }
