@@ -1,4 +1,5 @@
 #include "MemberSignIn.h"
+#include "ContactList.h"
 
 std::string accessToken;
 
@@ -177,6 +178,7 @@ INT_PTR CALLBACK SignIn(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 BOOST_LOG_TRIVIAL(info) << "Sign-In successful!";
                 MessageBox(hDlg, TEXT("Sign-In successful!"), TEXT("Sign-In Success"), MB_OK | MB_ICONINFORMATION);
                 EndDialog(hDlg, IDOK);
+                UpdateContactList();
             }
             else
             {

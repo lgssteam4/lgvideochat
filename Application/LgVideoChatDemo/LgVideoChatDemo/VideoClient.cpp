@@ -87,7 +87,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// 서버의 주소 정보를 가져옴
 	// Get server address information
 	iResult = getaddrinfo(remotehostname, remoteportno, &hints, &result);
 	if (iResult != 0)
@@ -102,7 +101,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 		return false;
 	}
 
-	// 클라이언트 소켓 생성
 	// Create client socket
 	if ((Client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
 	{
@@ -125,12 +123,10 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	}
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success connect";
 
-	// SSL 초기화
 	// Initialize SSL
 	initializeSSL();
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success initializeSSL";
 
-	// SSL 컨텍스트 생성 및 초기화
 	// Create and initialize SSL context
 	ctxForClient = createSSLContextForClient();
 	if (ctxForClient == NULL)
@@ -144,7 +140,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	}
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success createSSLContextForClient";
 
-	// SSL 소켓 생성
 	// Create SSL socket
 	SSLSocketForClient = SSL_new(ctxForClient);
 	if (SSLSocketForClient == NULL)
@@ -159,7 +154,6 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	}
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_new";
 
-	// SSL 소켓에 일반 소켓 연결
 	// Connect a client socket to the SSL socket.
 	int fd = SSL_set_fd(SSLSocketForClient, Client);
 	if (fd != 1)
@@ -174,12 +168,10 @@ bool ConnectToSever(const char* remotehostname, unsigned short remoteport)
 	BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_set_fd";
 	SSLClient = SSL_get_fd(SSLSocketForClient);
 
-	// 인증서 검증
 	// Verify certification
 	//SSL_CTX_set_verify(ctxForClient, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 	//BOOST_LOG_TRIVIAL(debug) << "Client: Success SSL_CTX_set_verify";
 
-	// SSL 소켓을 사용하여 서버와 다시 연결
 	// Reconnect with the server using SSL socket
 	if (SSL_connect(SSLSocketForClient) != 1)
 	{
@@ -251,7 +243,6 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 
 	liDueTime.QuadPart = 0LL;
 
-	// 타이머 생성
 	// Create timer
 	hTimer = CreateWaitableTimer(NULL, FALSE, NULL);
 
@@ -261,7 +252,6 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 		return 2;
 	}
 
-	// 타이머 설정
 	// Set timer
 	if (!SetWaitableTimer(hTimer, &liDueTime, VIDEO_FRAME_DELAY, NULL, NULL, 0))
 	{
@@ -269,15 +259,12 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 		return 3;
 	}
 
-	// 클라이언트 이벤트 핸들 생성
 	// Create a client event handle
 	hClientEvent = WSACreateEvent();
 
-	// 클라이언트 종료 이벤트 핸들 생성
 	// Create a client end event handle
 	hEndVideoClientEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
-	// 소켓과 이벤트 핸들을 연결 (FD_READ와 FD_CLOSE 이벤트 감시하도록 지정)
 	// Connect socket and event handle (specify to watch for FD_READ and FD_CLOSE events)
 	if (WSAEventSelect(SSLClient, hClientEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 	{
@@ -304,15 +291,12 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 			FALSE,			// wait for any object
 			INFINITE);		// INFINITE) wait
 
-		// 클라이언트 종료 이벤트
 		// Client end event
 		if (dwEvent == WAIT_OBJECT_0) break;
-		// 클라이언트 소켓의 네트워크 이벤트 처리
 		// Handling network events on client socket
 		else if (dwEvent == WAIT_OBJECT_0 + 1)
 		{
 			WSANETWORKEVENTS NetworkEvents;
-			// 클라이언트 소켓의 네트워크 이벤트를 가져옴
 			// Get network events on client socket
 			if (SOCKET_ERROR == WSAEnumNetworkEvents(SSLClient, hClientEvent, &NetworkEvents))
 			{
@@ -380,7 +364,6 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 						//else BOOST_LOG_TRIVIAL(debug) << "Client: SSLReadDataTcpNoBlock buff failed " << WSAGetLastError();
 					}
 				}
-				// 데이터를 전송할 수 있는 상태임을 의미
 				if (NetworkEvents.lNetworkEvents & FD_WRITE)
 				{
 					if (NetworkEvents.iErrorCode[FD_WRITE_BIT] != 0)
@@ -392,7 +375,6 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 						BOOST_LOG_TRIVIAL(info) << "Client: FD_WRITE";
 					}
 				}
-				// 클라이언트 소켓 닫힘을 의미
 				if (NetworkEvents.lNetworkEvents & FD_CLOSE)
 				{
 					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0)
@@ -408,7 +390,6 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 				}
 			}
 		}
-		// hTimer 이벤트가 발생한 경우, 카메라 프레임을 가져와 서버에 전송
 		// Get the camera frame and send it to the server when the hTimer event occurs
 		else if (dwEvent == WAIT_OBJECT_0 + 2)
 		{
@@ -443,7 +424,7 @@ static DWORD WINAPI ThreadVideoClient(LPVOID ivalue)
 		InputBuffer = nullptr;
 	}
 
-	VideoClientCleanup();	// 연결이 종료된 서버와 관련된 자원을 정리
+	VideoClientCleanup();
 	BOOST_LOG_TRIVIAL(info) << "Video Client Exiting";
 	return 0;
 }

@@ -297,7 +297,7 @@ private:
             // Write whatever content we already have to output.
             if (response_.size() > 0)
             {
-                std::string str = CopyStreambufToString(&response_);
+                str = CopyStreambufToString(&response_);
                 BOOST_LOG_TRIVIAL(info) << "content string : " << str;
                 keyValuePairs = ParseJsonString(str);
             }
@@ -319,7 +319,10 @@ private:
         if (!err)
         {
             // Write all of the data that has been read so far.
-            BOOST_LOG_TRIVIAL(info) << &response_;
+            std::string additional_str;
+            additional_str = CopyStreambufToString(&response_);
+            str.append(additional_str);
+            keyValuePairs = ParseJsonString(str);
 
             // Continue reading remaining data until EOF.
             boost::asio::async_read(socket_, response_,
@@ -338,8 +341,8 @@ private:
     boost::asio::streambuf request_;
     boost::asio::streambuf response_;
     std::map<std::string, std::string> keyValuePairs;
+    std::string str;
 };
-
 
 int request(std::string request_method, std::string uri, std::string session_token,
     unsigned int* status_code, std::map<std::string, std::string>& response)
@@ -423,7 +426,22 @@ unsigned int sendGetRequest(const std::string& function, const std::string& sess
         BOOST_LOG_TRIVIAL(info) << pair.first << ": " << pair.second;
     }
     */
+    return statusCode;
+}
 
+unsigned int sendGetRequest(const std::string& function, const std::string& sessionToken, std::map<std::string, std::string>& response) {
+    int rc = 0;
+    unsigned int statusCode = 0;
+
+    // Send GET request
+    rc = request("GET", function, sessionToken, &statusCode, response);
+    BOOST_LOG_TRIVIAL(info) << "GET : statusCode - " << statusCode;
+    // 3rd param is session token
+    /*
+    for (const auto& pair : response) {
+        BOOST_LOG_TRIVIAL(info) << pair.first << ": " << pair.second;
+    }
+    */
     return statusCode;
 }
 

@@ -105,7 +105,9 @@ void updateCallStatus(const char* remoteIP)
 	std::string email, first_name, last_name, ip_address;
 	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address;
 
+	// Check call start time
 	startCall = std::time(nullptr);
+
 	if (queryUserInfo(remoteIP, response))
 	{
 		//for (const auto& pair : response) {
@@ -154,6 +156,7 @@ void updateCallHistory(const char* remoteIP, bool calling)
 		localtime_s(&endCall_time, &endCall);
 		std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &endCall_time);
 	}
+
 	BOOST_LOG_TRIVIAL(debug) << "Current time: " << time_str;
 	cstr_time = time_str;
 
@@ -403,7 +406,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			GetWindowTextA(hEditWnd, RemoteAddress, sizeof(RemoteAddress));
 		}
 		break;
-
 		case IDC_CHECKBOX_LOOPBACK:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_LOOPBACK);
@@ -417,7 +419,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDC_CHECKBOX_AEC:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_AEC);
@@ -431,7 +432,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDC_CHECKBOX_NS:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_NS);
@@ -445,7 +445,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
-
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -563,7 +562,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CLIENT_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
 		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
-		//MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		// Update call history
 		updateCallHistory(RemoteAddress, true);
 		break;
 	case WM_REMOTE_CONNECT:
@@ -593,8 +592,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		BOOST_LOG_TRIVIAL(info) << "Disable window alway on top.";
 		break;
-	case WM_REMOTE_MISSEDCALL:
-		BOOST_LOG_TRIVIAL(info) << "WM_REMOTE_MISSEDCALL";
+	case WM_MISSEDCALL:
+		BOOST_LOG_TRIVIAL(info) << "WM_MISSEDCALL";
 		// Update call history
 		MissedIP = reinterpret_cast<char*>(lParam);
 		updateCallHistory(MissedIP, false);
@@ -785,7 +784,7 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		WS_CHILD | WS_BORDER | WS_VISIBLE | ES_MULTILINE | WS_VSCROLL | ES_READONLY,
 		0, 0, 0, 0, hWnd, (HMENU)IDC_EDIT, hInst, NULL);
 
-	// 첫 번째 서브 윈도우 생성
+	// Create 1 sub window
 	CreateWindow(_T("STATIC"),
 		_T("Cam"),
 		WS_VISIBLE | WS_CHILD,
@@ -796,13 +795,13 @@ static LRESULT OnCreate(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		5, 120, 900, 350,
 		hWnd, NULL, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 	
-	// 두 번째 서브 윈도우 생성 ListBox
+	// Create 2 sub window (ListBox)
 	CreateContactListWindow(hWnd, message, wParam, lParam, { 910, 100, 450, 300 });
 	
-	// 세 번째 서브 윈도우 생성 EditBox Call History
+	// Create 3 sub window (EditBox Call History)
 	CreateCallHistoryWindow(hWnd, message, wParam, lParam, { 910, 400, 450, 190 });
 	
-	// 네 번째 서브 윈도우 생성 EditBox Call Status
+	// Create 4 sub window (EditBox Call Status)
 	CreateCallStatusWindow(hWnd, message, wParam, lParam, { 5, 475, 900, 115 });
 
 	hWndMainToolbar = CreateSimpleToolbar(hWnd);
@@ -872,6 +871,7 @@ static int OnDisconnect(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		StopVideoClient();
 		CloseCamera();
 		MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
+		updateCallHistory(RemoteAddress, true);
         BOOST_LOG_TRIVIAL(info) << "Video Client Stopped";
 	}
 	else if (IsVideoServerRunning())

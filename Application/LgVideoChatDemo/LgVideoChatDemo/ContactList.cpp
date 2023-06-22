@@ -4,6 +4,9 @@
 
 #include <string>
 #include <regex>
+#include "BackendHttpsClient.h"
+
+extern std::string accessToken;
 
 static HWND hContactListWnd;
 static void AddContactListInfo(void);
@@ -26,8 +29,6 @@ LRESULT CreateContactListWindow(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 		WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY | WS_VSCROLL,
 		rt.left, rt.top + offset, rt.right, rt.bottom - offset,
 		hWnd, NULL, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-
-	AddContactListInfo();
 
 	return 1;
 }
@@ -52,35 +53,54 @@ LRESULT DoubleClickContactListEventHandler(HWND hWnd, UINT message, WPARAM wPara
 	return 0;
 }
 
-static void AddContactListInfo(void)
+// Get user information
+bool queryAllUserInfo(std::map<std::string, std::string>& userInfo) {
+	unsigned int rc = 0;
+	std::string api = "/api/user/all/";
+	std::string sessionToken = accessToken;
+
+	rc = sendGetRequest(api, sessionToken, userInfo);
+	if (rc == 200) {
+		return true;
+	}
+
+	return false;
+}
+
+void UpdateContactList(void)
 {
-	// 주소 목록 추가
-	const wchar_t* contectList[] = {
-		L"1. John Smith - john.smith@example.com - 192.168.0.126",
-		L"2. Emily Johnson - emily.johnson@example.com - 10.0.0.1",
-		L"3. Michael Williams - michael.williams@example.com - 172.16.0.1",
-		L"4. Emma Brown - emma.brown@example.com - 192.168.1.1",
-		L"5. Daniel Jones - daniel.jones@example.com - 10.0.0.2",
-		L"6. Olivia Davis - olivia.davis@example.com - 172.16.0.2",
-		L"7. Matthew Miller - matthew.miller@example.com - 192.168.2.1",
-		L"8. Ava Wilson - ava.wilson@example.com - 10.0.0.3",
-		L"9. Sophia Taylor - sophia.taylor@example.com - 172.16.0.3",
-		L"10. William Anderson - william.anderson@example.com - 192.168.3.1",
-		L"11. Isabella Martinez - isabella.martinez@example.com - 10.0.0.4",
-		L"12. Ethan Thomas - ethan.thomas@example.com - 172.16.0.4",
-		L"13. Mia Garcia - mia.garcia@example.com - 192.168.4.1",
-		L"14. James Robinson - james.robinson@example.com - 10.0.0.5",
-		L"15. Charlotte Clark - charlotte.clark@example.com - 172.16.0.5",
-		L"16. Benjamin Rodriguez - benjamin.rodriguez@example.com - 192.168.5.1",
-		L"17. Amelia Lewis - amelia.lewis@example.com - 10.0.0.6",
-		L"18. Harper Lee - harper.lee@example.com - 172.16.0.6",
-		L"19. Henry Walker - henry.walker@example.com - 192.168.6.1",
-		L"20. Evelyn Hall - evelyn.hall@example.com - 10.0.0.7"
-	};
+	BOOST_LOG_TRIVIAL(debug) << "Start UpdateContactList: ";
+	std::map<std::string, std::string> response;
+	std::vector<const wchar_t*> contactList = {};
 
-	for (int i = 0; i < sizeof(contectList) / sizeof(contectList[0]); ++i)
-		SendMessage(hContactListWnd, LB_ADDSTRING, 0, (LPARAM)contectList[i]);
+	if (queryAllUserInfo(response))
+	{
+		BOOST_LOG_TRIVIAL(debug) << "Success queryAllUserInfo";
+		for (const auto& pair : response) {
+			BOOST_LOG_TRIVIAL(debug) << pair.first << ": " << pair.second;
+			std::wstring valueWStr = L" " + std::wstring(pair.second.begin(), pair.second.end());
+			const wchar_t* value = _wcsdup(valueWStr.c_str());
+			contactList.push_back(value);
+		}
+	}
+	else
+	{
+		BOOST_LOG_TRIVIAL(debug) << "Error queryAllUserInfo";
+		std::wstring valueWStr = L"Failed to get contact list from DB.";
+		const wchar_t* errorMessage = _wcsdup(valueWStr.c_str());
+		contactList.push_back(errorMessage);
+	}
 
+	for (const wchar_t* contact : contactList) {
+		SendMessage(hContactListWnd, LB_ADDSTRING, 0, (LPARAM)contact);
+	}
+
+	// contactList에 할당된 메모리 해제
+	for (const wchar_t* contact : contactList) {
+		free((void*)contact);
+	}
+
+	BOOST_LOG_TRIVIAL(debug) << "End UpdateContactList";
 }
 
 static std::wstring ExtractIPAddress(const std::wstring& input)
