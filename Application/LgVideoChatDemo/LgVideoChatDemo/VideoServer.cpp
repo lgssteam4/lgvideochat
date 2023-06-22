@@ -224,7 +224,7 @@ static DWORD WINAPI ThreadVideoServer(LPVOID ivalue)
 						char MissedIP[INET6_ADDRSTRLEN];
 						int err = -1;
 
-						if (Accept == INVALID_SOCKET && IsVideoClientRunning())
+						if (Accept == INVALID_SOCKET)
 						{
 							LARGE_INTEGER liDueTime{};
 
