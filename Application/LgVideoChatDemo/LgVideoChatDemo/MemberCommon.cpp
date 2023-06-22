@@ -1,4 +1,4 @@
-#include "Common.h"
+#include "MemberCommon.h"
 
 // Function to check if the given email is valid
 bool isValidEmail(const std::string& email)
@@ -167,4 +167,11 @@ bool getPasswordText(HWND hDlg, unsigned int textBox, std::string& password)
         return false;
     }
     return true;
+}
+
+// Function to activate the textbox
+void inActivateTextBox(HWND hDlg, unsigned int textBox, bool active)
+{
+    HWND hEditOTP = GetDlgItem(hDlg, textBox);
+    EnableWindow(hEditOTP, active);
 }

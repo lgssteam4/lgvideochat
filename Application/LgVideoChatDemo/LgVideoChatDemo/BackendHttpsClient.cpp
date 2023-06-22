@@ -224,6 +224,12 @@ private:
             this->status_code_ = status_code;
             std::string status_message;
             std::getline(response_stream, status_message);
+
+            // Read the response headers, which are terminated by a blank line.
+            boost::asio::async_read_until(socket_, response_, "\r\n\r\n",
+                boost::bind(&client::handleReadHeaders, this,
+                    boost::asio::placeholders::error));
+
             if (!response_stream || http_version.substr(0, 5) != "HTTP/")
             {
                 std::cout << "Invalid response\n";
@@ -237,10 +243,6 @@ private:
             }
             std::cout << "Status code: " << status_code << "\n";
 
-            // Read the response headers, which are terminated by a blank line.
-            boost::asio::async_read_until(socket_, response_, "\r\n\r\n",
-                boost::bind(&client::handleReadHeaders, this,
-                    boost::asio::placeholders::error));
         }
         else
         {

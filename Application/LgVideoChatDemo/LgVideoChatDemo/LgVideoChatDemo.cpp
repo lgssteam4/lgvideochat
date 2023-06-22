@@ -1,7 +1,6 @@
 ﻿// LgVideoChatDemo.cpp : Defines the entry point for the application.
-//
-#include "BoostLog.h"
 
+#include "BoostLog.h"
 #include "framework.h"
 #include <Commctrl.h>
 #include <atlstr.h>
@@ -19,9 +18,9 @@
 #include "DisplayImage.h"
 #include "VideoClient.h"
 #include "litevad.h"
-#include "Login.h"
-#include "Join.h"
-#include "Update.h"
+#include "MemberSignIn.h"
+#include "MemberSignUp.h"
+#include "MemberUpdate.h"
 #include "ContactList.h"
 #include "CallHistory.h"
 #include "CallStatus.h"
@@ -106,9 +105,7 @@ void updateCallStatus(const char* remoteIP)
 	std::string email, first_name, last_name, ip_address;
 	CStringW cstr_email, cstr_first_name, cstr_last_name, cstr_ip_address;
 
-	// Check call start time
 	startCall = std::time(nullptr);
-
 	if (queryUserInfo(remoteIP, response))
 	{
 		//for (const auto& pair : response) {
@@ -157,7 +154,6 @@ void updateCallHistory(const char* remoteIP, bool calling)
 		localtime_s(&endCall_time, &endCall);
 		std::strftime(time_str, sizeof(time_str), "%I:%M:%S %p", &endCall_time);
 	}
-
 	BOOST_LOG_TRIVIAL(debug) << "Current time: " << time_str;
 	cstr_time = time_str;
 
@@ -385,7 +381,7 @@ static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	INT_PTR result_login;
+	INT_PTR resultSignUp;
 
 	switch (message)
 	{
@@ -406,6 +402,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			GetWindowTextA(hEditWnd, RemoteAddress, sizeof(RemoteAddress));
 		}
 		break;
+
 		case IDC_CHECKBOX_LOOPBACK:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_LOOPBACK);
@@ -419,6 +416,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
+
 		case IDC_CHECKBOX_AEC:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_AEC);
@@ -432,6 +430,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
+
 		case IDC_CHECKBOX_NS:
 		{
 			BOOL checked = IsDlgButtonChecked(hWnd, IDC_CHECKBOX_NS);
@@ -445,6 +444,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			}
 		}
 		break;
+
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -491,12 +491,15 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 			//EnableWindow(GetDlgItem(hWnd, IDC_CHECKBOX_NS), true);
 			OnStopServer(hWnd, message, wParam, lParam);
 			break;
-		case IDM_LOGIN:
-			result_login = DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGINDIALOG), hWnd, Login);
-			if (result_login == IDOK) {
-				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_LOGIN,
+		case IDM_SIGNUP:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_SIGNUPDIALOG), hWnd, SignUp);
+			break;
+		case IDM_SIGNIN:
+			resultSignUp = DialogBox(hInst, MAKEINTRESOURCE(IDD_SIGNINDIALOG), hWnd, SignIn);
+			if (resultSignUp == IDOK) {
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_SIGNIN,
 						(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
-				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_JOIN,
+				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_SIGNUP,
 					(LPARAM)MAKELONG(TBSTATE_INDETERMINATE, 0));
 				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_UPDATE,
 					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
@@ -505,9 +508,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 				SendMessage(hWndMainToolbar, TB_SETSTATE, IDM_START_SERVER,
 					(LPARAM)MAKELONG(TBSTATE_ENABLED, 0));
 			}
-			break;
-		case IDM_JOIN:
-			DialogBox(hInst, MAKEINTRESOURCE(IDD_JOINDIALOG), hWnd, Join);
 			break;
 		case IDM_UPDATE:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_UPDATEDIALOG), hWnd, Update);
@@ -546,7 +546,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 	case WM_CLIENT_LOST:
 		BOOST_LOG_TRIVIAL(info) << "WM_CLIENT_LOST";
 		SendMessage(hWndMain, WM_COMMAND, IDM_DISCONNECT, 0);
-		// Update call history
+		//MessageBox(hWnd, L"Video Call ended.", L"Alarm", MB_OK);
 		updateCallHistory(RemoteAddress, true);
 		break;
 	case WM_REMOTE_CONNECT:
@@ -683,8 +683,8 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_DISCONNECT,   TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Disconnect"},
 		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_START_SERVER, TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Start Server"},
 		{ MAKELONG(VIEW_NETDISCONNECT, ImageListID), IDM_STOP_SERVER,  TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Stop Server"},
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_JOIN,         TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Join" },
-		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_LOGIN,        TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Login" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_SIGNUP,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Sign-Up" },
+		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_SIGNIN,       TBSTATE_ENABLED,       buttonStyles, {0}, 0, (INT_PTR)L"Sign-In" },
 		{ MAKELONG(VIEW_NETCONNECT,    ImageListID), IDM_UPDATE,       TBSTATE_INDETERMINATE, buttonStyles, {0}, 0, (INT_PTR)L"Update" },
 	};
 

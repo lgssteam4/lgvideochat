@@ -8,13 +8,14 @@
 #include <thread>
 #include <chrono>
 #include <string>
+#include <codecvt>
 #include <iostream>
-#include "Common.h"
+#include "MemberCommon.h"
 #include "resource.h"
 #include "BackendHttpsClient.h"
 
 // Forward declarations of functions included in this code module:
-INT_PTR CALLBACK Login(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK SignIn(HWND, UINT, WPARAM, LPARAM);
 
 //-----------------------------------------------------------------
 // END of File

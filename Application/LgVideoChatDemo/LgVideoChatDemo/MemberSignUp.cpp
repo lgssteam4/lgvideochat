@@ -1,9 +1,9 @@
-#include "Join.h"
+#include "MemberSignUp.h"
 
-static char joinRemoteAddress[512] = "127.0.0.1";
-char joinLocalIpAddress[512] = "127.0.0.1";
-std::string joinEmail = "";
-bool checkDuplicateJoinEmail = false;
+static char signUpRemoteAddress[512] = "127.0.0.1";
+char signUpLocalIpAddress[512] = "127.0.0.1";
+std::string signUpEmail = "";
+bool checkDuplicateSignUpEmail = false;
 
 bool startsWith(const std::string& str, const std::string& prefix) {
     if (str.length() < prefix.length()) {
@@ -39,9 +39,9 @@ static void SetHostAddr(void)
 
             if (startsWith(_address, "192.168.0."))
             {
-                strcpy_s(joinRemoteAddress, sizeof(joinRemoteAddress), _address);
-                strcpy_s(joinLocalIpAddress, sizeof(joinLocalIpAddress), _address);
-                BOOST_LOG_TRIVIAL(info) << "RemoteAddress : " << joinRemoteAddress << "LocalIpAddress : " << joinLocalIpAddress;
+                strcpy_s(signUpRemoteAddress, sizeof(signUpRemoteAddress), _address);
+                strcpy_s(signUpLocalIpAddress, sizeof(signUpLocalIpAddress), _address);
+                BOOST_LOG_TRIVIAL(info) << "RemoteAddress : " << signUpRemoteAddress << "LocalIpAddress : " << signUpLocalIpAddress;
                 break;
             }
         }
@@ -50,11 +50,11 @@ static void SetHostAddr(void)
 
 void EnableEdit(HWND hDlg, BOOL bEnable)
 {
-    HWND hEditPassOTP = GetDlgItem(hDlg, IDC_JOIN_E_PASSWORD);
-    HWND hEditCPassOTP = GetDlgItem(hDlg, IDC_JOIN_E_CONFIRMPASSWORD);
-    HWND hEditFNameOTP = GetDlgItem(hDlg, IDC_JOIN_E_FIRSTNAME);
-    HWND hEditLNameOTP = GetDlgItem(hDlg, IDC_JOIN_E_LASTNAME);
-    HWND hEditAddrOTP = GetDlgItem(hDlg, IDC_JOIN_E_ADDRESS);
+    HWND hEditPassOTP = GetDlgItem(hDlg, IDC_SIGNUP_E_PW);
+    HWND hEditCPassOTP = GetDlgItem(hDlg, IDC_SIGNUP_E_CONFIRM_PW);
+    HWND hEditFNameOTP = GetDlgItem(hDlg, IDC_SIGNUP_E_FIRST_NAME);
+    HWND hEditLNameOTP = GetDlgItem(hDlg, IDC_SIGNUP_E_LAST_NAME);
+    HWND hEditAddrOTP = GetDlgItem(hDlg, IDC_SIGNUP_E_IP_ADDRESS);
 
     // IDC_LOGIN_E_OTP Edit 창을 활성화
     EnableWindow(hEditPassOTP, bEnable);
@@ -65,12 +65,12 @@ void EnableEdit(HWND hDlg, BOOL bEnable)
 
 }
 
-// Function to perform join logic
-bool PerformJoin(HWND hDlg)
+// Function to perform SignUp logic
+bool PerformSignUp(HWND hDlg)
 {
     // Get email text
     std::string email;
-    if (!getControlText(hDlg, IDC_JOIN_E_EMAIL, email))
+    if (!getControlText(hDlg, IDC_SIGNUP_E_EMAIL, email))
     {
         BOOST_LOG_TRIVIAL(error) << "Email is empty";
         MessageBox(hDlg, TEXT("Email is empty"), TEXT("Email Error"), MB_OK | MB_ICONERROR);
@@ -79,17 +79,18 @@ bool PerformJoin(HWND hDlg)
 
     // Check if the email is a duplicate
     // Check if the email matches the newEmail
-    if (!checkDuplicateJoinEmail || (email != joinEmail))
+    if (!checkDuplicateSignUpEmail || (email != signUpEmail))
     {
-        checkDuplicateJoinEmail = false;
-        joinEmail = "";
+        checkDuplicateSignUpEmail = false;
+        signUpEmail = "";
+        BOOST_LOG_TRIVIAL(error) << " click the [Duplicate Check] button";
         MessageBox(hDlg, TEXT("Please click the [Duplicate Check] button"), TEXT("Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     // Get password text
     std::string password;
-    if (!getControlText(hDlg, IDC_JOIN_E_PASSWORD, password))
+    if (!getControlText(hDlg, IDC_SIGNUP_E_PW, password))
     {
         BOOST_LOG_TRIVIAL(error) << "Password is empty";
         MessageBox(hDlg, TEXT("Password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
@@ -103,7 +104,7 @@ bool PerformJoin(HWND hDlg)
 
     // Get confirm password text
     std::string cPassword;
-    if (!getControlText(hDlg, IDC_JOIN_E_CONFIRMPASSWORD, cPassword))
+    if (!getControlText(hDlg, IDC_SIGNUP_E_CONFIRM_PW, cPassword))
     {
         BOOST_LOG_TRIVIAL(error) << "Confirm password is empty";
         MessageBox(hDlg, TEXT("Confirm password is empty"), TEXT("Password Error"), MB_OK | MB_ICONERROR);
@@ -123,51 +124,30 @@ bool PerformJoin(HWND hDlg)
         return false;
     }
 
-    HWND hFNameEdit = GetDlgItem(hDlg, IDC_JOIN_E_FIRSTNAME);
-    int fnameLength = GetWindowTextLength(hFNameEdit);
+    // Get first name text
     std::string fName;
-    if (fnameLength > 0)
+    if (!getControlText(hDlg, IDC_SIGNUP_E_FIRST_NAME, fName))
     {
-        std::vector<char> buffer(fnameLength + 1);
-        GetWindowTextA(hFNameEdit, buffer.data(), fnameLength + 1);
-        fName = buffer.data();
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(error) << "first name is empty";
-        MessageBox(hDlg, TEXT("First name is empty"), TEXT("First name Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "First name is empty";
+        MessageBox(hDlg, TEXT("First name is empty"), TEXT("First Name Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
-    HWND hLNameEdit = GetDlgItem(hDlg, IDC_JOIN_E_LASTNAME);
-    int lnameLength = GetWindowTextLength(hLNameEdit);
+    // Get last name text
     std::string lName;
-    if (lnameLength > 0)
+    if (!getControlText(hDlg, IDC_SIGNUP_E_LAST_NAME, lName))
     {
-        std::vector<char> buffer(lnameLength + 1);
-        GetWindowTextA(hLNameEdit, buffer.data(), lnameLength + 1);
-        lName = buffer.data();
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(error) << "last name is empty";
-        MessageBox(hDlg, TEXT("Last name is empty"), TEXT("Last name Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "Last name is empty";
+        MessageBox(hDlg, TEXT("Last name is empty"), TEXT("Last Name Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
-    HWND hAddrEdit = GetDlgItem(hDlg, IDC_JOIN_E_ADDRESS);
-    int addrLength = GetWindowTextLength(hAddrEdit);
+    // Get IP address text
     std::string addr;
-    if (addrLength > 0)
+    if (!getControlText(hDlg, IDC_SIGNUP_E_IP_ADDRESS, addr))
     {
-        std::vector<char> buffer(addrLength + 1);
-        GetWindowTextA(hAddrEdit, buffer.data(), addrLength + 1);
-        addr = buffer.data();
-    }
-    else
-    {
-        BOOST_LOG_TRIVIAL(error) << "ip address is empty";
-        MessageBox(hDlg, TEXT("IP address is empty"), TEXT("IP address Error"), MB_OK | MB_ICONERROR);
+        BOOST_LOG_TRIVIAL(error) << "IP address is empty";
+        MessageBox(hDlg, TEXT("IP address is empty"), TEXT("IP Address Error"), MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -181,32 +161,32 @@ bool PerformJoin(HWND hDlg)
     if (rc != 0 || status_code != 200)
     {
         BOOST_LOG_TRIVIAL(error) << "rc =" << rc << " status_code = " << status_code;
+        BOOST_LOG_TRIVIAL(error) << "Error is occurred, Please check the input value";
         MessageBox(hDlg, TEXT("Error is occurred, Please check the input value"), TEXT("Error from server"), MB_OK | MB_ICONERROR);
         return false;
     }
 
     BOOST_LOG_TRIVIAL(info) << response["message"];
-    
     std::string successMessage = response["message"];
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     std::wstring wstr = converter.from_bytes(successMessage);
 
     BOOST_LOG_TRIVIAL(info) << "User created successfully";
-    MessageBox(hDlg, wstr.c_str(), TEXT("User created"), MB_OK);
+    MessageBox(hDlg, wstr.c_str(), TEXT("Sign-In Success"), MB_OK | MB_ICONINFORMATION);
 
     return true;
 }
 
 void setIPAddr(HWND hDlg)
 {
-    HWND hAddrEdit = GetDlgItem(hDlg, IDC_JOIN_E_ADDRESS);
+    HWND hAddrEdit = GetDlgItem(hDlg, IDC_SIGNUP_E_IP_ADDRESS);
     SetHostAddr();
-    SetWindowTextA(hAddrEdit, joinRemoteAddress);
+    SetWindowTextA(hAddrEdit, signUpRemoteAddress);
 }
 
-// Message handler for Join box.
-INT_PTR CALLBACK Join(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+// Message handler for SignUp box.
+INT_PTR CALLBACK SignUp(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
     switch (message)
@@ -218,26 +198,26 @@ INT_PTR CALLBACK Join(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK)
         {
-            if (PerformJoin(hDlg))
+            if (PerformSignUp(hDlg))
             {
                 EndDialog(hDlg, IDOK);
             }
         }
         else if (LOWORD(wParam) == IDCANCEL)
         {
-            // 취소 버튼을 누르면 다이얼로그를 닫습니다.
+            // Close the dialog when the Cancel button is pressed
             EndDialog(hDlg, LOWORD(wParam));
             return TRUE;
         }
-        else if (LOWORD(wParam) == IDC_JOIN_CHECKEMAIL)
+        else if (LOWORD(wParam) == IDC_SIGNUP_B_CHECK_EMAIL)
         {
             SetHostAddr();
-            // IDC_UPDATE_BUTTON_DUPLICATE 버튼 클릭 시 OnButtonOTPClick 함수 호출
+            /// Call the OnButtonOTPClick function when the IDC_SIGNUP_B_CHECK_EMAIL button is clicked
             std::string email;
-            checkDuplicateJoinEmail = checkEmail(hDlg, IDC_JOIN_E_EMAIL, email);
-            if (checkDuplicateJoinEmail)
+            checkDuplicateSignUpEmail = checkEmail(hDlg, IDC_SIGNUP_E_EMAIL, email);
+            if (checkDuplicateSignUpEmail)
             {
-                joinEmail = email;
+                signUpEmail = email;
                 EnableEdit(hDlg, TRUE);
             }
             else

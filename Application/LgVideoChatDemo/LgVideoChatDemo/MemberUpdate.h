@@ -8,7 +8,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include "Common.h"
+#include "MemberCommon.h"
 #include "resource.h"
 #include "BackendHttpsClient.h"
 

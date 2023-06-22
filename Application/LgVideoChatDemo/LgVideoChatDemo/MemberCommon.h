@@ -34,6 +34,9 @@ bool getEmailText(HWND hDlg, unsigned int textBox, std::string& email);
 // Function to get password text
 bool getPasswordText(HWND hDlg, unsigned int textBox, std::string& password);
 
+// Function to activate the textbox
+void inActivateTextBox(HWND hDlg, unsigned int textBox, bool active);
+
 
 //-----------------------------------------------------------------
 // END of File
