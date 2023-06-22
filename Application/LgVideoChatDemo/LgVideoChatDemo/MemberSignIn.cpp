@@ -19,10 +19,8 @@ bool GenerateOTP(HWND hDlg)
     std::string data = "email=" + email + "&" + "password=" + password;
 
     rc = sendPostRequest(api, data, "", response);
-    if (rc == 200) {
-        BOOST_LOG_TRIVIAL(error) << "Please enter the OTP code that has been sent to your email";
-        MessageBox(hDlg, TEXT("Please enter the OTP code that has been sent to your email"), TEXT("Generate OTP"), MB_OK | MB_ICONINFORMATION);
-
+    if (rc == 200)
+    {
         inActivateTextBox(hDlg, IDC_SIGNIN_E_OTP, true);
 
         EnableWindow(GetDlgItem(hDlg, IDC_SIGNIN_B_GEN_OTP), FALSE);
@@ -30,6 +28,9 @@ bool GenerateOTP(HWND hDlg)
         // Start the countdown.
         std::thread countdownThread(ShowCountdown, hDlg, IDC_SIGNIN_T_OTP_TIME);
         countdownThread.detach();
+
+        BOOST_LOG_TRIVIAL(error) << "Please enter the OTP code that has been sent to your email";
+        MessageBox(hDlg, TEXT("Please enter the OTP code that has been sent to your email"), TEXT("Generate OTP"), MB_OK | MB_ICONINFORMATION);
 
         EnableWindow(GetDlgItem(hDlg, IDC_SIGNIN_B_GEN_OTP), TRUE);
         SendMessage(GetDlgItem(hDlg, IDC_SIGNIN_E_OTP), EM_LIMITTEXT, 6, 0);
