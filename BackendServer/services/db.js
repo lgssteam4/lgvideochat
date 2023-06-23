@@ -1,9 +1,15 @@
 const mysql = require('mysql2/promise');
 const redis = require('redis');
 const config = require('../config');
+const utils = require('../utils');
 
+const authTable = "auth";
+const userTable = "contact";
+
+/* MySQL */
 async function query(sql, params) {
   const connection = await mysql.createConnection(config.db);
+  // await connection.execute("SET time_zone='+00:00';");
   const [results, ] = await connection.execute(sql, params);
 
   return results;
@@ -26,6 +32,33 @@ async function createRedisConnection() {
                 await client.connect();
                 return client;
 }
+
+async function storeOTP(userId, otp, duration) {
+        try {
+                const otpExpiredAt = new Date(new Date().setMinutes(new Date().getMinutes() + parseInt(duration)));
+
+                const result = await query(
+                        `UPDATE ${authTable} SET otp=?, expired_at=?, otp_used=false WHERE contact_id = ?`,
+                        [otp, otpExpiredAt, userId]
+                );
+                const debugResult = await query(
+                        `SELECT * from ${authTable} WHERE contact_id = ?`,
+						[userId]
+					
+                );
+
+                if (result && result.affectedRows) return true;
+
+                return false;
+
+        } catch (err) {
+                console.log(err);
+                return false;
+        }
+}
+
+
+/* Redis */
 
 const addToken = async(user_id, token, expiredAt) => {
         try {
@@ -50,22 +83,69 @@ const getToken = async (userId) => {
     }
 };
 
-const blacklistToken = async(token) => {
+const blacklistToken = async(key) => {
     try {
-                                const client = await createRedisConnection();
-        const status = await client.SET(token, "invalid"); // sets the value of the JWT to be invalid
-        if (status == "nil") console.error("Token does not exist in cache");
-        const payload = await jwt.verify(token, "secret-key") // verifies and decode the jwt to get the expiration date
-        await client.EXPIREAT(token, +payload.exp); // sets the token expiration date to be removed from the cache
+		const client = await createRedisConnection();
+        await client.del(key);
         return;
     } catch(e) {
         console.error("Token not invalidated")
     }
 };
 
+async function increaseFailedAttempt(user) {
+        const result = await query(
+                `SELECT failed_attempt FROM auth WHERE contact_id = ?`,
+                [user.contact_id]
+        );
+
+        const failedAttempts = result[0].failed_attempt + 1;
+        await query(
+                `UPDATE ${authTable} SET failed_attempt = ${failedAttempts} WHERE contact_id = ?`,
+                [user.contact_id]
+        );
+
+        // If failed attempts > threshold, lock account
+        if (failedAttempts > parseInt(process.env.FAILED_LOGIN_THRESHOLD)) {
+                await query(
+                        `UPDATE ${userTable} SET is_locked = true WHERE contact_id = ?`,
+                        [user.contact_id]
+                );
+
+                const unlockAt = new Date(new Date().setMinutes(new Date().getMinutes() + parseInt(process.env.ACCOUNT_LOCK_DURATION_MIN)));
+
+                await query(
+                        `UPDATE ${userTable} SET unlock_at = ? WHERE contact_id = ?`,
+                        [unlockAt, user.contact_id]
+                );
+
+				utils.sendLockAccountEmail(
+					{
+						dst: user.email,
+						name: user.first_name,
+						duration: process.env.ACCOUNT_LOCK_DURATION_MIN
+					}
+				);
+
+				
+        }
+
+        return failedAttempts;
+}
+
+async function lockAccount(user) {
+	await db.query(
+		`UPDATE ${userTable} SET is_locked = true WHERE contact_id = ?`,
+		[user.contact_id]
+	)
+}
+
+
 module.exports = {
 	query,
+	storeOTP,
 	getToken,
 	addToken,
-	blacklistToken
+	blacklistToken,
+	increaseFailedAttempt,
 }

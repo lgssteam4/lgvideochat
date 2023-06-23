@@ -1,9 +1,19 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const https = require("https");
+const util = require("util");
 const fs = require("fs");
 const path = require("path");
-const router = require("./routes/user");
+const userRouter = require("./routes/user");
+const authRouter = require("./routes/auth");
+
+const log_file = fs.createWriteStream(__dirname + '/logs/service.log', {flags : 'w'});
+const log_stdout = process.stdout;
+
+console.log = function(d) { 
+  log_file.write(util.format(d) + '\n');
+  log_stdout.write(util.format(d) + '\n');
+};
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,7 +27,8 @@ app.use(
   })
 );
 
-app.use("/api", router);
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
 
 /* Error handler middleware */
 app.use((err, req, res, next) => {
@@ -29,6 +40,7 @@ app.use((err, req, res, next) => {
 });
 
 app.get("/", (req, res) => {
+	console.log("HERERERER");
   res.json({ message: "Welcome to LGE Chat Backend Server" });
 });
 
@@ -42,6 +54,6 @@ const httpsServer = https.createServer(
 	app 
 )
 
-httpsServer.listen(3001, () => {
-    console.log("HTTPS server up and running on port 3001")
+httpsServer.listen(443, () => {
+    console.log("HTTPS server up and running on port 443")
 })

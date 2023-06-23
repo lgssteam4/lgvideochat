@@ -31,7 +31,7 @@ function validatePasswordComplexity(password) {
 	 * One or more numbers.
 	 * One or more special characters (ASCII punctuation or space characters).
 	*/
-	const minMaxLength = /^[\s\S]{8,32}$/,
+	const minMaxLength = /^[\s\S]{10,32}$/,
         upper = /[A-Z]/,
         lower = /[a-z]/,
         number = /[0-9]/,
@@ -106,7 +106,7 @@ function sendActivationEmail({dst, userId, name}) {
 	});
 }
 
-function sendResetPasswordEmail({dst, name, confirmation_code}) {
+function sendResetPasswordEmail({dst, name, confirmationCode}) {
 	transporter.sendMail({
 		from: process.env.MAIL_USER,
 		to: dst,
@@ -114,7 +114,7 @@ function sendResetPasswordEmail({dst, name, confirmation_code}) {
 		html: `<h1>Email Confirmation</h1>
 			<h2>Hello ${name}</h2>
 			<p>You recently requested to reset the password for your LG Chat account. If you did not request a password reset, please ignore this email or reply to let us know.</p>
-			<p>Here is your confirmation code: <b>${confirmation_code}</b></p>
+			<p>Here is your confirmation code: <b>${confirmationCode}</b></p>
 			</div>`,
 	}).catch((err) => {
 		console.log(err);
@@ -133,6 +133,22 @@ function sendOTPEmail({dst, otp}) {
 	}).catch((err) => {
 		console.log(err);
 	});
+	console.log("HERE");
+}
+
+function sendChangePasswordConfirmationEmail({dst, name, confirmationCode}) {
+	transporter.sendMail({
+		from: process.env.MAIL_USER,
+		to: dst,
+		subject: "LGE Video Chat - Change Password",
+		html: `<h1>Email Confirmation</h1>
+			<h2>Hello ${name}</h2>
+			<p>You recently requested to change the password for your LG Chat account. If you did not request a passwordchange, please ignore this email or reply to let us know.</p>
+			<p>Here is your confirmation code: <b>${confirmationCode}</b></p>
+			</div>`,
+	}).catch((err) => {
+		console.log(err);
+	});
 }
 
 function generateOTP() {
@@ -140,7 +156,6 @@ function generateOTP() {
 }
 
 function sendEmailUpdateConfirmation({dst, name, confirmationCode}) {
-	console.log(name);
 	transporter.sendMail({
 		from: process.env.MAIL_USER,
 		to: dst,
@@ -148,13 +163,58 @@ function sendEmailUpdateConfirmation({dst, name, confirmationCode}) {
 		html: `<h1>Email Update</h1>
 			<h2>Dear ${name}</h2>
 			<p>You recently requested to update the email of your LG Chat account. If you did not request to change your email, please contact us immediately to report any unauthorized access to your account.</p>
-			<p>Confirmation code: ${confirmationCode}</p>
+			<p>Confirmation code: <b>${confirmationCode}</b></p>
 			</div>`,
 	}).catch((err) => {
 		console.log(err);
 	});
 }
 
+function sendPasswordChangedEmail({dst, name}) {
+	transporter.sendMail({
+		from: process.env.MAIL_USER,
+		to: dst,
+		subject: "LGE Video Chat - Password Changed",
+		html: `<h1>Password Changed</h1>
+			<h2>Dear ${name}</h2>
+			<p>You have successfully updated your password.</p>
+			<p>If you did not request to change your password,  please contact us immediately to report any unauthorized access to your account.</p>
+			</div>`,
+	}).catch((err) => {
+		console.log(err);
+	});
+}
+
+function sendEmailChangedEmail({dst, name, newEmail}) {
+	transporter.sendMail({
+		from: process.env.MAIL_USER,
+		to: dst,
+		subject: "LGE Video Chat - Email Changed",
+		html: `<h1>Email Changed</h1>
+			<h2>Dear ${name}</h2>
+			<p>You have successfully updated your email.</p>
+			<p>If you did not request to change your email,  please contact us immediately to report any unauthorized access to your account.</p>
+			</div>`,
+	}).catch((err) => {
+		console.log(err);
+	});
+}
+
+function sendLockAccountEmail({dst, name, duration}) {
+	transporter.sendMail({
+		from: process.env.MAIL_USER,
+		to: dst,
+		subject: "LGE Video Chat - Account Locked",
+		html: `<h1>Account Locked</h1>
+			<h2>Dear ${name}</h2>
+			<p>You account has been locked due to multiple failed login attempts.</p>
+			<p>You can reset your password or re-login after ${duration} minutes.</p>
+			</div>`,
+	}).catch((err) => {
+		console.log(err);
+	});
+
+}
 
 module.exports = {
 	getOffset,
@@ -170,6 +230,10 @@ module.exports = {
 	sendActivationEmail,
 	sendResetPasswordEmail,
 	sendEmailUpdateConfirmation,
+	sendChangePasswordConfirmationEmail,
 	generateOTP,
-	sendOTPEmail
+	sendOTPEmail,
+	sendPasswordChangedEmail,
+	sendEmailChangedEmail,
+	sendLockAccountEmail
 }
